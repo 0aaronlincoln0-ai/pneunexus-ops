@@ -113,21 +113,30 @@ export default async (request: Request, context: Context) => {
     const response = await client.chat.completions.create({
       model,
       messages: [
-        { role: "system", content: diagnosticSystemPrompt },
+        {
+          role: "system",
+          content: `${diagnosticSystemPrompt}\n\nReturn only a valid JSON object that matches this required schema:\n${JSON.stringify(diagnosticResponseJsonSchema)}`,
+        },
         { role: "user", content },
       ],
       max_tokens: 1_600,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "diagnostic_turn",
-          strict: true,
-          schema: diagnosticResponseJsonSchema,
-        },
-      },
+      response_format: { type: "json_object" },
     });
     const outputText = response.choices[0]?.message.content;
-    if (!outputText) throw new Error("AI response did not contain output text");
+    if (!outputText) {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "diagnostic.response.empty",
+          requestId: id,
+          model,
+          choiceCount: response.choices.length,
+          finishReason: response.choices[0]?.finish_reason ?? "unknown",
+          refusal: Boolean(response.choices[0]?.message.refusal),
+        }),
+      );
+      throw new Error("AI response did not contain output text");
+    }
     let result: z.infer<typeof outputSchema>;
     try {
       result = outputSchema.parse(JSON.parse(outputText));
