@@ -2,6 +2,7 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
   Building2,
+  CalendarCheck2,
   ChevronRight,
   Command,
   Database,
@@ -23,10 +24,11 @@ import { Button } from "./ui/button";
 import { LogoMark } from "./LoginScreen";
 
 const navigation = [
-  { to: "/", label: "Operations", icon: Gauge },
-  { to: "/facilities", label: "Facilities", icon: Building2 },
-  { to: "/assets", label: "Asset registry", icon: PackageSearch },
-  { to: "/troubleshoot", label: "Troubleshoot", icon: Stethoscope },
+  { to: "/", label: "Field guide home", icon: Gauge },
+  { to: "/troubleshoot", label: "Guided diagnosis", icon: Stethoscope },
+  { to: "/maintenance", label: "Planned maintenance", icon: CalendarCheck2 },
+  { to: "/assets", label: "Equipment records", icon: PackageSearch },
+  { to: "/facilities", label: "Site notes", icon: Building2 },
 ] as const;
 
 export function AppShell() {
@@ -52,7 +54,7 @@ export function AppShell() {
     return () => removeEventListener("keydown", listener);
   }, []);
 
-  const current = navigation.find((item) => item.to === pathname)?.label ?? "Operations";
+  const current = navigation.find((item) => item.to === pathname)?.label ?? "Field guide home";
 
   return (
     <div className="app-canvas min-h-[100dvh] text-slate-100">
@@ -66,9 +68,9 @@ export function AppShell() {
           <div className="flex items-center gap-3.5">
             <LogoMark />
             <div>
-              <p className="text-[15px] font-semibold tracking-[-0.02em]">PneuNexus Ops</p>
+              <p className="text-[15px] font-semibold tracking-[-0.02em]">PneuNexus Field Guide</p>
               <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[.22em] text-slate-600">
-                Command center
+                Tube system maintenance
               </p>
             </div>
           </div>
@@ -83,7 +85,7 @@ export function AppShell() {
 
         <nav className="flex-1 p-4" aria-label="Primary navigation">
           <p className="mb-3 px-3 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-700">
-            Operational workspace
+            Technician workspace
           </p>
           <div className="space-y-1">
             {navigation.map(({ to, label, icon: Icon }) => (
@@ -105,11 +107,11 @@ export function AppShell() {
 
           <div className="mt-8 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">
-              <Database size={13} className="text-teal-300/70" /> Active data scope
+              <Database size={13} className="text-teal-300/70" /> Standalone storage
             </div>
-            <p className="mt-3 text-xs font-semibold text-slate-300">Great Lakes Regional Health</p>
+            <p className="mt-3 text-xs font-semibold text-slate-300">Manual technician records</p>
             <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-600">
-              <span className="status-pulse" /> Fictional demonstration data
+              <span className="status-pulse" /> No tube-system connection
             </div>
           </div>
         </nav>
@@ -170,9 +172,9 @@ export function AppShell() {
           </Button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-600">
-              <span className="hidden truncate sm:inline">Great Lakes Regional Health</span>
+              <span className="hidden truncate sm:inline">Standalone field workspace</span>
               <ChevronRight className="hidden sm:block" size={12} />
-              <span className="truncate">All facilities</span>
+              <span className="truncate">Saved locally or in the guide database</span>
             </div>
             <h1 className="mt-1 truncate text-lg font-semibold tracking-[-0.025em] text-slate-100">
               {current}

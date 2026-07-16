@@ -19,6 +19,11 @@ const TroubleshootingPage = lazy(() =>
     default: module.TroubleshootingPage,
   })),
 );
+const MaintenancePage = lazy(() =>
+  import("./pages/MaintenancePage").then((module) => ({
+    default: module.MaintenancePage,
+  })),
+);
 
 function RootComponent() {
   const { loading, user } = useAuth();
@@ -64,11 +69,17 @@ const troubleshootingRoute = createRoute({
   path: "/troubleshoot",
   component: TroubleshootingPage,
 });
+const maintenanceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/maintenance",
+  component: MaintenancePage,
+});
 const routeTree = rootRoute.addChildren([
   indexRoute,
   facilitiesRoute,
   assetsRoute,
   troubleshootingRoute,
+  maintenanceRoute,
 ]);
 export const router = createRouter({
   routeTree,

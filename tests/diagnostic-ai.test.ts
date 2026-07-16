@@ -24,11 +24,14 @@ describe("AI diagnostic grounding", () => {
     );
     expect(context).toContain("Confirm the reported position [completed]");
     expect(context).toContain("SOURCE:");
+    expect(context).toContain("LIKELY CAUSE GROUPS:");
+    expect(context).toContain("RETURN-TO-SERVICE VERIFICATION:");
   });
 
   it("has explicit safety and one-step boundaries", () => {
     expect(diagnosticSystemPrompt).toContain("exactly ONE safe diagnostic check");
     expect(diagnosticSystemPrompt).toContain("Never bypass lockout/tagout");
     expect(diagnosticSystemPrompt).toContain("Never invent");
+    expect(diagnosticSystemPrompt).toContain("numbered step that exist");
   });
 });

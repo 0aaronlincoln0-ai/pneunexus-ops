@@ -6,11 +6,17 @@ test("authenticated troubleshooting workspace fits phone and tablet viewports", 
   await page.goto("/");
   await page.getByLabel("Username or email").fill("admin");
   await page.getByLabel("Password").fill("admin");
-  await page.getByRole("button", { name: /enter command center/i }).click();
+  await page.getByRole("button", { name: /open maintenance guide/i }).click();
   await page.goto("/troubleshoot");
 
   await expect(page.getByRole("heading", { name: "Guided Voice Assistant" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Type a message to Voice Assist" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Type a message to Voice Assist" })).toHaveCount(
+    1,
+  );
+  await expect(page.getByRole("button", { name: "Tap to speak" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Add photo" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Start talking" })).toHaveCount(0);
 
   const viewport = page.viewportSize();
   const horizontalOverflow = await page.evaluate(

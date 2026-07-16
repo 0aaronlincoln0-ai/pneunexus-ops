@@ -35,14 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => setError("Unable to reach the authentication service."))
       .finally(() => setLoading(false));
   }, [refresh]);
-  const handleLogin = useCallback(
-    async (email: string, password: string) => {
-      setError(null);
-      await api.login(email, password);
-      await refresh();
-    },
-    [refresh],
-  );
+  const handleLogin = useCallback(async (email: string, password: string) => {
+    setError(null);
+    const session = await api.login(email, password);
+    setUser(session.user);
+    setCsrfToken(session.csrfToken);
+  }, []);
   const handleLogout = useCallback(async () => {
     if (csrfToken) await api.logout(csrfToken);
     setUser(null);

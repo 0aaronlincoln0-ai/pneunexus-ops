@@ -13,14 +13,14 @@ export function FacilitiesPage() {
   return (
     <>
       <PageHeading
-        eyebrow="Facility and floor management"
-        title="Great Lakes Regional Health"
-        description="Navigate the authorized hospital network hierarchy. Floor-plan files remain unavailable until an approved regulated-data storage provider and malware scanner are configured."
+        eyebrow="Manually maintained site reference"
+        title="Saved locations and tube-system notes"
+        description="Organize campuses, buildings, floors, systems, and zones entered by the technician or administrator. Nothing on this page is read from the hospital network or tube equipment."
       />
       <div className="grid gap-6 xl:grid-cols-[1.25fr_.75fr]">
         <Card className="overflow-hidden">
           <div className="border-b border-white/[0.055] bg-white/[0.018] px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-            Hospital network hierarchy
+            Saved location hierarchy
           </div>
           <div className="divide-y divide-white/[0.055]">
             {campuses.map((campus) => {
@@ -90,7 +90,7 @@ export function FacilitiesPage() {
         <div className="space-y-6">
           <Card className="p-6">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-              Scope summary
+              Record summary
             </p>
             <div className="mt-5 space-y-4">
               <Summary icon={MapPin} label="Campuses" value={campuses.length} />
@@ -105,7 +105,9 @@ export function FacilitiesPage() {
             </div>
           </Card>
           <Card className="p-6">
-            <h3 className="text-sm font-semibold text-slate-200">System distribution</h3>
+            <h3 className="text-sm font-semibold text-slate-200">
+              Manually recorded system layout
+            </h3>
             <div className="mt-5 space-y-4">
               {systems.map((system) => (
                 <div

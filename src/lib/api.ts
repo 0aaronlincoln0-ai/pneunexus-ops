@@ -1,7 +1,7 @@
 import type { BootstrapData, SessionUser } from "../types";
 import type { DiagnosticTurnInput, DiagnosticTurnResponse } from "./diagnostic-ai";
 import { localAdminUser, localDemoData } from "./local-demo";
-import { searchTroubleshootingGuides, troubleshootingGuides } from "./troubleshooting";
+import { rankTroubleshootingGuides, troubleshootingGuides } from "./troubleshooting";
 
 const localAdminEnabled = import.meta.env.DEV && import.meta.env.VITE_LOCAL_ADMIN !== "false";
 const localSessionKey = "pneunexus-local-admin";
@@ -35,13 +35,16 @@ export async function getSession(): Promise<{ user: SessionUser; csrfToken: stri
   return parse(response);
 }
 
-export async function login(email: string, password: string): Promise<{ csrfToken: string }> {
+export async function login(
+  email: string,
+  password: string,
+): Promise<{ user: SessionUser; csrfToken: string }> {
   if (localAdminEnabled) {
     if (email.trim().toLowerCase() !== "admin" || password !== "admin") {
       throw new ApiError("Username or password is incorrect", 401);
     }
     localStorage.setItem(localSessionKey, "authenticated");
-    return { csrfToken: "local-development" };
+    return { user: localAdminUser, csrfToken: "local-development" };
   }
   return parse(
     await fetch("/api/auth/login", {
@@ -97,9 +100,7 @@ export async function diagnose(
   if (localAdminEnabled) {
     await new Promise((resolve) => window.setTimeout(resolve, 450));
     const guide =
-      troubleshootingGuides.find(({ id }) => id === input.guideId) ??
-      searchTroubleshootingGuides(input.message, "All")[0] ??
-      troubleshootingGuides[0];
+      rankTroubleshootingGuides(input.message, input.guideId)[0] ?? troubleshootingGuides[0];
     if (!guide) throw new ApiError("No diagnostic guide is available", 404);
     const nextIndex = guide.steps.findIndex(
       (_, index) => !input.completedStepIndexes.includes(index),

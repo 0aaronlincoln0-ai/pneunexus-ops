@@ -5,6 +5,7 @@ import {
   diagnosticProtocolContext,
   diagnosticResponseJsonSchema,
   diagnosticSystemPrompt,
+  rankDiagnosticGuides,
 } from "../../server/ai/diagnostic";
 import { capabilities, requireCapability } from "../../server/security/capabilities";
 import { detectProhibitedContent } from "../../server/security/validation";
@@ -43,10 +44,8 @@ const outputSchema = z.object({
   safetyMessage: z.string().nullable(),
   nextStep: z
     .object({
-      title: z.string(),
-      instruction: z.string(),
-      expected: z.string(),
       sourceGuideId: z.string(),
+      stepIndex: z.number().int().min(0).max(30),
     })
     .nullable(),
   followUpQuestion: z.string(),
@@ -155,23 +154,89 @@ export default async (request: Request, context: Context) => {
       throw error;
     }
 
+    const approvedGuides = rankDiagnosticGuides(input.message, input.guideId);
+    const modelRecommendedGuide =
+      approvedGuides.find(({ id: guideId }) => guideId === result.recommendedGuideId) ??
+      approvedGuides[0];
+    if (!modelRecommendedGuide) throw new Error("No approved diagnostic protocol was selected");
+
+    const selectedStepGuide = result.nextStep
+      ? approvedGuides.find(({ id: guideId }) => guideId === result.nextStep?.sourceGuideId)
+      : undefined;
+    const requestedStepIndex = result.nextStep?.stepIndex;
+    const requestedStepAlreadyCompleted =
+      selectedStepGuide?.id === input.guideId &&
+      requestedStepIndex !== undefined &&
+      input.completedStepIndexes.includes(requestedStepIndex);
+    const approvedStepIndex =
+      requestedStepAlreadyCompleted && selectedStepGuide
+        ? selectedStepGuide.steps.findIndex(
+            (_, index) => !input.completedStepIndexes.includes(index),
+          )
+        : requestedStepIndex;
+    const selectedStep =
+      selectedStepGuide && approvedStepIndex !== undefined && approvedStepIndex >= 0
+        ? selectedStepGuide.steps[approvedStepIndex]
+        : undefined;
+    const invalidStepSelection = Boolean(result.nextStep && (!selectedStepGuide || !selectedStep));
+    const recommendedGuide = selectedStepGuide ?? modelRecommendedGuide;
+    const nextStep =
+      selectedStep && selectedStepGuide
+        ? {
+            title: selectedStep.title,
+            instruction: selectedStep.instruction,
+            expected: selectedStep.expected,
+            sourceGuideId: selectedStepGuide.id,
+          }
+        : null;
+    const safetyStop = Boolean(selectedStep?.requiresShutdown) || result.safetyStop;
+    const safetyMessage = selectedStep?.requiresShutdown
+      ? "This check requires shutdown and site-approved lockout/tagout before work begins."
+      : result.safetyMessage;
+    const followUpQuestion = invalidStepSelection
+      ? "Stop here and escalate because no reviewed protocol step matched the requested action."
+      : nextStep
+        ? "What did you observe after completing that check?"
+        : result.followUpQuestion;
+    const speech = invalidStepSelection
+      ? followUpQuestion
+      : nextStep
+        ? `${safetyStop ? "Stop and confirm the stated safety conditions first. " : ""}${nextStep.instruction} You should see: ${nextStep.expected} ${followUpQuestion}`
+        : result.speech;
+    const groundedResult: DiagnosticTurnResponse = {
+      ...result,
+      summary: invalidStepSelection ? recommendedGuide.summary : result.summary,
+      speech,
+      recommendedGuideId: recommendedGuide.id,
+      safetyStop,
+      safetyMessage,
+      nextStep,
+      followUpQuestion,
+      evidenceToCollect: nextStep ? recommendedGuide.tools.slice(0, 4) : result.evidenceToCollect,
+      escalate: invalidStepSelection || result.escalate,
+      escalationReason: invalidStepSelection
+        ? "The AI selection did not map to a reviewed protocol step."
+        : result.escalationReason,
+      mode: "ai-gateway",
+    };
+
     await databaseAuditLogProvider.append({
       organizationId: principal.organizationId,
       actorId: principal.userId,
       action: "diagnostic.ai.turn",
       resourceType: "troubleshooting-guide",
-      resourceId: result.recommendedGuideId,
+      resourceId: groundedResult.recommendedGuideId,
       outcome: "success",
       requestId: id,
       changeSummary: {
         model,
         imageProvided: Boolean(input.imageDataUrl),
-        safetyStop: result.safetyStop,
-        escalate: result.escalate,
+        safetyStop: groundedResult.safetyStop,
+        escalate: groundedResult.escalate,
       },
     });
 
-    return json({ ...result, mode: "ai-gateway" } satisfies DiagnosticTurnResponse);
+    return json(groundedResult);
   } catch (error) {
     return errorResponse(error, id);
   }

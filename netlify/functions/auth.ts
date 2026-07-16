@@ -6,6 +6,8 @@ import { getDatabase } from "../../server/db/client";
 import {
   memberships,
   organizationSettings,
+  permissions,
+  rolePermissions,
   roles,
   securityEvents,
   sessions,
@@ -112,8 +114,23 @@ async function login(request: Request, context: Context): Promise<Response> {
     outcome: "success",
     requestId: id,
   });
+  const granted = await db
+    .select({ key: permissions.key })
+    .from(rolePermissions)
+    .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+    .where(eq(rolePermissions.roleId, account.membership.roleId));
   return json(
-    { authenticated: true, csrfToken },
+    {
+      authenticated: true,
+      csrfToken,
+      user: {
+        id: account.user.id,
+        displayName: account.user.displayName,
+        email: account.user.email,
+        role: account.roleKey,
+        permissions: granted.map(({ key }) => key),
+      },
+    },
     { headers: { "Set-Cookie": sessionCookie(token, absoluteHours * 3600) } },
   );
 }

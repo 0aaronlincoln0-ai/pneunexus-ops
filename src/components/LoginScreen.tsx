@@ -1,23 +1,36 @@
 import { useState, type FormEvent } from "react";
 import {
-  Activity,
   ArrowRight,
-  CheckCircle2,
+  Fan,
+  GitBranch,
   KeyRound,
   LockKeyhole,
   Mail,
+  MonitorCog,
+  PackageOpen,
   Route,
   ShieldCheck,
-  Waypoints,
 } from "lucide-react";
 import { useAuth } from "../auth";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 
 const assurances = [
-  { icon: Waypoints, label: "Vendor-neutral mapping", detail: "One system of record" },
-  { icon: ShieldCheck, label: "Tenant isolated", detail: "Capability-based access" },
-  { icon: CheckCircle2, label: "Audit ready", detail: "Immutable event history" },
+  {
+    icon: PackageOpen,
+    label: "Three device families",
+    detail: "Stations · diverters · blowers",
+  },
+  {
+    icon: MonitorCog,
+    label: "Atlas reference",
+    detail: "Technician-entered faults · history",
+  },
+  {
+    icon: ShieldCheck,
+    label: "Standalone guide",
+    detail: "No server or equipment connection",
+  },
 ];
 
 export function LoginScreen() {
@@ -53,7 +66,7 @@ export function LoginScreen() {
                   PneuNexus Systems
                 </p>
                 <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Infrastructure intelligence
+                  Pneumatic tube maintenance
                 </p>
               </div>
             </div>
@@ -66,31 +79,30 @@ export function LoginScreen() {
           <div className="max-w-[760px] py-12">
             <div className="mb-7 flex items-center gap-3">
               <div className="h-px w-8 bg-teal-300/70" />
-              <p className="eyebrow">Hospital infrastructure operations</p>
+              <p className="eyebrow">Technician troubleshooting reference</p>
             </div>
             <h1 className="max-w-3xl text-[clamp(3.2rem,5.7vw,6.25rem)] font-semibold leading-[0.94] tracking-[-0.065em] text-white">
-              Every route.
+              Diagnose the fault.
               <br />
-              Every device.
-              <br />
-              <span className="text-teal-300">One truth.</span>
+              <span className="text-teal-300">Restore the route.</span>
             </h1>
             <p className="mt-8 max-w-xl text-base leading-7 text-slate-400 xl:text-lg xl:leading-8">
-              A secure operational system of record for the infrastructure that keeps hospitals
-              moving—mapped, maintained, and accountable.
+              A standalone field reference for hospital engineering teams. Troubleshoot from
+              technician-entered observations, complete station, diverter, and blower PM procedures,
+              document findings, and escalate when service is required.
             </p>
 
             <div className="relative mt-10 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#080e14]/90 px-6 pb-5 pt-4 shadow-[0_28px_80px_rgba(0,0,0,0.28)]">
               <div className="flex items-center justify-between border-b border-white/[0.07] pb-3">
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                  <Activity size={14} className="text-teal-300" />
-                  Infrastructure topology
+                  <Route size={14} className="text-teal-300" />
+                  Diagnostic system model
                 </div>
                 <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-                  Illustrative system view
+                  Standalone reference model
                 </span>
               </div>
-              <TopologyBackdrop />
+              <SystemServiceModel />
             </div>
 
             <div className="mt-5 grid grid-cols-3 divide-x divide-white/[0.08] border-y border-white/[0.08] py-4">
@@ -108,10 +120,10 @@ export function LoginScreen() {
 
           <div className="flex items-end justify-between gap-6 text-[11px] leading-5 text-slate-600">
             <p className="max-w-xl">
-              Infrastructure operations only. PneuNexus Ops does not control live equipment and is
-              not a patient-record system.
+              This app does not connect to Atlas, a hospital server, or tube equipment. Current site
+              manuals, hospital policy, and qualified technicians remain authoritative.
             </p>
-            <p className="shrink-0 uppercase tracking-[0.16em]">PneuNexus Ops / 01</p>
+            <p className="shrink-0 uppercase tracking-[0.16em]">Field guide / 01</p>
           </div>
         </section>
 
@@ -120,22 +132,22 @@ export function LoginScreen() {
             <div className="mb-14 flex items-center gap-3.5 lg:hidden">
               <LogoMark />
               <div>
-                <p className="font-semibold text-white">PneuNexus Ops</p>
+                <p className="font-semibold text-white">PneuNexus Field Guide</p>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">
-                  Infrastructure intelligence
+                  Pneumatic tube maintenance
                 </p>
               </div>
             </div>
 
             <div className="mb-9">
               <div className="mb-6 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-300">
-                <LockKeyhole size={14} /> Secure workspace
+                <LockKeyhole size={14} /> Technician sign in
               </div>
               <h2 className="text-4xl font-semibold tracking-[-0.045em] text-white">
-                Welcome back
+                Maintenance guide
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Sign in with your verified, invitation-only account.
+                Use the temporary demo credentials or your assigned account.
               </p>
             </div>
 
@@ -187,7 +199,7 @@ export function LoginScreen() {
               )}
 
               <Button className="mt-2 w-full" type="submit" disabled={pending}>
-                {pending ? "Verifying…" : "Enter command center"}
+                {pending ? "Signing in…" : "Open maintenance guide"}
                 <ArrowRight size={17} />
               </Button>
             </form>
@@ -215,43 +227,58 @@ export function LoginScreen() {
   );
 }
 
-function TopologyBackdrop() {
+function SystemServiceModel() {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 720 230"
-      className="mt-2 block h-[190px] w-full xl:h-[220px]"
-    >
-      <path className="topology-line-muted" d="M30 44H690M30 116H690M30 188H690" />
-      <path className="topology-line-muted" d="M88 18V212M244 18V212M410 18V212M612 18V212" />
-      <path className="topology-line" d="M88 116H244L318 62H410L490 166H612" />
-      <path className="topology-line" d="M244 116L330 166H490" />
-      <path className="topology-line" d="M410 62L520 76L612 116" />
-      {[
-        [88, 116],
-        [244, 116],
-        [318, 62],
-        [410, 62],
-        [330, 166],
-        [490, 166],
-        [520, 76],
-        [612, 116],
-      ].map(([cx, cy], index) => (
-        <g key={`${cx}-${cy}`}>
-          <circle className="topology-node" cx={cx} cy={cy} r={index === 1 ? 14 : 9} />
-          <circle className="topology-node-core" cx={cx} cy={cy} r={index === 1 ? 3.5 : 2.5} />
-        </g>
-      ))}
-      <text x="65" y="142" className="fill-slate-600 text-[10px] font-semibold uppercase">
-        Station
-      </text>
-      <text x="218" y="145" className="fill-slate-500 text-[10px] font-semibold uppercase">
-        Core hub
-      </text>
-      <text x="588" y="143" className="fill-slate-600 text-[10px] font-semibold uppercase">
-        Zone 04
-      </text>
-    </svg>
+    <div className="py-5">
+      <div className="flex items-center gap-3 rounded-xl border border-teal-300/12 bg-teal-300/[0.035] px-4 py-3">
+        <div className="grid h-9 w-9 place-items-center rounded-lg bg-teal-300/[0.08] text-teal-300">
+          <MonitorCog size={18} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-slate-200">
+            Technician-entered Atlas or equipment evidence
+          </p>
+          <p className="mt-0.5 text-[10px] leading-4 text-slate-600">
+            Transaction state · route · device faults · carrier sightings · history
+          </p>
+        </div>
+      </div>
+
+      <div className="my-3 flex items-center px-6" aria-hidden="true">
+        <span className="h-4 w-px bg-teal-300/25" />
+        <span className="h-px flex-1 bg-gradient-to-r from-teal-300/25 via-teal-300/10 to-transparent" />
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <SystemDevice icon={PackageOpen} label="Station" detail="Send · receive · position" />
+        <SystemDevice icon={GitBranch} label="Diverter" detail="Port · alignment · sensing" />
+        <SystemDevice icon={Fan} label="Blower" detail="Vacuum · pressure · airflow" />
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 px-1 text-[10px] leading-4 text-slate-600">
+        <ShieldCheck size={13} className="shrink-0 text-teal-300/60" />
+        The technician enters what is visible locally. The guide cannot read or operate these
+        devices.
+      </div>
+    </div>
+  );
+}
+
+function SystemDevice({
+  icon: Icon,
+  label,
+  detail,
+}: {
+  icon: typeof PackageOpen;
+  label: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+      <Icon size={17} className="text-teal-300/75" />
+      <p className="mt-3 text-xs font-semibold text-slate-200">{label}</p>
+      <p className="mt-1 text-[9px] leading-4 text-slate-600">{detail}</p>
+    </div>
   );
 }
 

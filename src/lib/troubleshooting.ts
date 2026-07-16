@@ -866,6 +866,66 @@ export const diagnosticCategories: Array<"All" | DiagnosticCategory> = [
   "Safety & contamination",
 ];
 
+const diagnosticStopWords = new Set([
+  "about",
+  "after",
+  "again",
+  "does",
+  "from",
+  "have",
+  "into",
+  "that",
+  "the",
+  "then",
+  "this",
+  "with",
+]);
+
+function diagnosticTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .filter((token) => token.length > 2 && !diagnosticStopWords.has(token));
+}
+
+export function rankTroubleshootingGuides(
+  query: string,
+  selectedGuideId?: string,
+): TroubleshootingGuide[] {
+  const queryTokens = diagnosticTokens(query);
+  const scored = troubleshootingGuides.map((guide) => {
+    const searchableTokens = new Set(
+      diagnosticTokens(
+        [
+          guide.title,
+          ...guide.faultNames,
+          guide.category,
+          ...guide.deviceTypes,
+          guide.summary,
+          ...guide.symptoms,
+          ...guide.likelyCauses,
+        ].join(" "),
+      ),
+    );
+    const matches = queryTokens.reduce(
+      (score, token) => score + (searchableTokens.has(token) ? 2 : 0),
+      0,
+    );
+    return { guide, matches };
+  });
+  const maxMatches = Math.max(0, ...scored.map(({ matches }) => matches));
+  const selectedBonus = maxMatches <= 2 ? 6 : 1;
+
+  return scored
+    .map(({ guide, matches }) => ({
+      guide,
+      score: matches + (guide.id === selectedGuideId ? selectedBonus : 0),
+    }))
+    .sort((left, right) => right.score - left.score)
+    .map(({ guide }) => guide);
+}
+
 export function searchTroubleshootingGuides(query: string, category: string) {
   const normalized = query.trim().toLowerCase();
   return troubleshootingGuides.filter((guide) => {

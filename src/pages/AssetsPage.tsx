@@ -33,9 +33,9 @@ export function AssetsPage() {
   return (
     <>
       <PageHeading
-        eyebrow="Asset registry"
-        title="Equipment inventory"
-        description={`${devices.length} vendor-neutral infrastructure records across ${new Set(facilities.map((f) => f.campusId)).size} authorized facilities. Network details are permission-restricted and excluded from ordinary views.`}
+        eyebrow="Manually maintained equipment reference"
+        title="Equipment records"
+        description={`${devices.length} saved reference records across ${new Set(facilities.map((f) => f.campusId)).size} example locations. Status, revision, and service details are entered by users and are never read from live equipment.`}
         action={
           canCreate ? (
             <Button onClick={() => setDialog(true)}>
@@ -84,7 +84,7 @@ export function AssetsPage() {
                   "Manufacturer",
                   "Location",
                   "Criticality",
-                  "Status",
+                  "Last recorded condition",
                   "Firmware",
                 ].map((h) => (
                   <th key={h} className="px-5 py-3 font-bold">
@@ -135,8 +135,8 @@ export function AssetsPage() {
           </div>
         )}
         <div className="border-t border-white/[0.055] bg-white/[0.012] px-5 py-3 text-[11px] text-slate-600">
-          Showing {filtered.length} of {devices.length} records · Sensitive network fields protected
-          by field-level authorization
+          Showing {filtered.length} of {devices.length} manually maintained records · no equipment
+          synchronization
         </div>
       </Card>
       {dialog && (

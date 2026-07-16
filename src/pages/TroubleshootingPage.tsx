@@ -5,7 +5,6 @@ import {
   Check,
   CheckCircle2,
   Circle,
-  ClipboardCheck,
   FileSearch,
   HardHat,
   LockKeyhole,
@@ -28,6 +27,7 @@ import {
   troubleshootingGuides,
   type RiskLevel,
 } from "../lib/troubleshooting";
+import { pevcoKnowledgeProfile } from "../lib/pevco-knowledge";
 import { cn, titleCase } from "../lib/utils";
 
 const riskStyle: Record<RiskLevel, string> = {
@@ -78,41 +78,72 @@ export function TroubleshootingPage() {
   return (
     <>
       <PageHeading
-        eyebrow="Technician diagnostic center"
-        title="Troubleshoot with evidence"
-        description="A safety-gated field workflow for isolating pneumatic tube system faults by transaction state, device feedback, carrier sightings, and physical evidence. Guidance never controls live equipment."
+        eyebrow="Standalone Pevco field diagnostics"
+        title="Find the failed device, state, or route"
+        description="Enter the fault text and observations visible to the technician, then work through one safety-gated check at a time. The app does not connect to Atlas, hospital servers, or tube equipment."
         action={
           <div className="flex items-center gap-2 rounded-xl border border-teal-300/10 bg-teal-300/[0.04] px-3.5 py-2.5 text-[11px] font-semibold text-teal-200">
-            <BookOpenCheck size={15} /> Field knowledge reviewed
+            <BookOpenCheck size={15} /> Pevco / Atlas profile
           </div>
         }
       />
 
-      <section className="mb-6 grid gap-3 md:grid-cols-3">
-        <SignalCard
-          icon={Stethoscope}
-          label="Guided protocols"
-          value={troubleshootingGuides.length}
-          detail="Symptom-to-resolution workflows"
-        />
-        <SignalCard
-          icon={ShieldCheck}
-          label="Safety model"
-          value="Gated"
-          detail="LOTO, infection control, IT separation"
-        />
-        <SignalCard
-          icon={ClipboardCheck}
-          label="Evidence standard"
-          value="Traceable"
-          detail="Sightings, states, checks, outcomes"
-        />
-      </section>
+      <Card className="mb-6 overflow-hidden">
+        <div className="border-b border-white/[0.06] px-5 py-4 sm:px-6">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-sm font-semibold text-slate-200">{pevcoKnowledgeProfile.name}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">{pevcoKnowledgeProfile.scope}</p>
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+              {troubleshootingGuides.length} reviewed protocols
+            </span>
+          </div>
+        </div>
+        <div className="grid divide-y divide-white/[0.06] md:grid-cols-3 md:divide-x md:divide-y-0">
+          {pevcoKnowledgeProfile.deviceFamilies.map((family) => {
+            const Icon = categoryIcons[family.name];
+            return (
+              <div key={family.name} className="p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-9 w-9 place-items-center rounded-xl border border-teal-300/15 bg-teal-300/[0.05] text-teal-300">
+                    <Icon size={17} />
+                  </span>
+                  <p className="text-sm font-semibold text-white">{family.name}</p>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-slate-500">{family.purpose}</p>
+                <p className="mt-3 text-[10px] leading-5 text-slate-600">
+                  {family.evidence.join(" · ")}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        <div className="border-t border-white/[0.06] px-5 py-4 sm:px-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.15em] text-teal-300/65">
+              Enter before opening equipment
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {pevcoKnowledgeProfile.atlasEvidence.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.018] px-2.5 py-1.5 text-[10px] text-slate-500"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {selected && (
         <VoiceDiagnosticAssistant
           selectedGuideId={selected.id}
           selectedGuideTitle={selected.title}
+          selectedGuideSummary={selected.summary}
+          selectedGuideSource={selected.sourceSection}
           completedStepIndexes={[...completedSteps]}
           onGuideSelected={chooseGuide}
         />
@@ -149,7 +180,7 @@ export function TroubleshootingPage() {
         </div>
         <div className="flex items-center justify-between px-5 py-3 text-[11px] text-slate-600">
           <span>{filtered.length} matching diagnostic protocols</span>
-          <span>Vendor profile: Pevco / Atlas</span>
+          <span>Standalone reference profile: Pevco / Atlas</span>
         </div>
       </Card>
 
@@ -157,7 +188,7 @@ export function TroubleshootingPage() {
         <Card className="overflow-hidden xl:sticky xl:top-28">
           <div className="border-b border-white/[0.055] px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-              Diagnostic library
+              Protocol reference library
             </p>
           </div>
           <div className="max-h-[calc(100vh-15rem)] overflow-y-auto p-2">
@@ -257,7 +288,7 @@ export function TroubleshootingPage() {
                 </div>
               </div>
 
-              <div className="grid gap-6 p-6 md:grid-cols-2 md:p-7">
+              <div className="grid gap-6 p-6 md:grid-cols-3 md:p-7">
                 <EvidenceList
                   title="Observed signals"
                   icon={FileSearch}
@@ -268,6 +299,7 @@ export function TroubleshootingPage() {
                   icon={Wrench}
                   items={selected.likelyCauses}
                 />
+                <EvidenceList title="Evidence and tools" icon={HardHat} items={selected.tools} />
               </div>
             </Card>
 
@@ -293,8 +325,8 @@ export function TroubleshootingPage() {
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-slate-200">Safety gate</p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Review every condition before beginning. This application does not authorize
-                    live equipment control or replace hospital policy.
+                    Review every condition before beginning. This application cannot read or control
+                    equipment and does not replace hospital policy.
                   </p>
                   <ul className="mt-4 space-y-2.5">
                     {selected.safety.map((item) => (
@@ -321,9 +353,9 @@ export function TroubleshootingPage() {
             <Card className="overflow-hidden">
               <div className="flex items-center justify-between border-b border-white/[0.055] px-6 py-5">
                 <div>
-                  <p className="text-sm font-semibold text-slate-200">Guided diagnostic sequence</p>
+                  <p className="text-sm font-semibold text-slate-200">Manual protocol reference</p>
                   <p className="mt-1 text-[11px] text-slate-600">
-                    Observe first, isolate the failed layer, then verify restoration.
+                    This supports the single AI conversation above; it is not a second chat.
                   </p>
                 </div>
                 {!safetyConfirmed && (
@@ -419,48 +451,23 @@ export function TroubleshootingPage() {
               <div className="flex items-start gap-3">
                 <BookOpenCheck className="mt-0.5 shrink-0 text-teal-300/70" size={18} />
                 <div>
-                  <p className="text-xs font-semibold text-slate-300">Technical provenance</p>
+                  <p className="text-xs font-semibold text-slate-300">
+                    Booklet-derived technical provenance
+                  </p>
                   <p className="mt-1 text-[11px] leading-5 text-slate-600">
-                    Reviewed against {selected.sourceSection}. Site-specific manuals, revisions,
-                    configuration, and hospital policies always take precedence.
+                    Protocol source section: {selected.sourceSection}.{" "}
+                    {pevcoKnowledgeProfile.authority}
                   </p>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2 text-[10px] text-slate-600">
-                <ShieldCheck size={13} /> No PHI · No live control
+                <ShieldCheck size={13} /> No PHI · No equipment connection
               </div>
             </Card>
           </div>
         )}
       </div>
     </>
-  );
-}
-
-function SignalCard({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof Stethoscope;
-  label: string;
-  value: string | number;
-  detail: string;
-}) {
-  return (
-    <Card className="stat-card flex items-center gap-4 p-4">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.025] text-teal-300/75">
-        <Icon size={18} />
-      </div>
-      <div>
-        <div className="flex items-baseline gap-2">
-          <p className="text-lg font-semibold tracking-tight text-white">{value}</p>
-          <p className="text-[11px] font-medium text-slate-500">{label}</p>
-        </div>
-        <p className="mt-0.5 text-[10px] text-slate-600">{detail}</p>
-      </div>
-    </Card>
   );
 }
 

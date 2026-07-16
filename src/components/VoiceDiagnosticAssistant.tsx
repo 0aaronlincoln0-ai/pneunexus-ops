@@ -5,7 +5,6 @@ import {
   Camera,
   Check,
   ChevronRight,
-  ImagePlus,
   Keyboard,
   LoaderCircle,
   Mic,
@@ -29,6 +28,8 @@ import { Card } from "./ui/card";
 interface VoiceDiagnosticAssistantProps {
   selectedGuideId: string;
   selectedGuideTitle: string;
+  selectedGuideSummary: string;
+  selectedGuideSource: string;
   completedStepIndexes: number[];
   onGuideSelected(id: string): void;
 }
@@ -40,6 +41,8 @@ const quickStarts = ["A carrier is missing", "A station will not send", "Airflow
 export function VoiceDiagnosticAssistant({
   selectedGuideId,
   selectedGuideTitle,
+  selectedGuideSummary,
+  selectedGuideSource,
   completedStepIndexes,
   onGuideSelected,
 }: VoiceDiagnosticAssistantProps) {
@@ -487,8 +490,9 @@ export function VoiceDiagnosticAssistant({
             />
           ) : (
             <ReadyPanel
-              onStartTalking={toggleListening}
-              onAddPhoto={() => photoInputRef.current?.click()}
+              guideTitle={selectedGuideTitle}
+              guideSummary={selectedGuideSummary}
+              guideSource={selectedGuideSource}
             />
           )}
         </aside>
@@ -712,24 +716,30 @@ function CurrentStep({
 }
 
 function ReadyPanel({
-  onStartTalking,
-  onAddPhoto,
+  guideTitle,
+  guideSummary,
+  guideSource,
 }: {
-  onStartTalking(): void;
-  onAddPhoto(): void;
+  guideTitle: string;
+  guideSummary: string;
+  guideSource: string;
 }) {
   return (
     <div className="mt-7">
-      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
-        <p className="text-lg font-semibold text-white">Start with what you notice</p>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          You do not need technical terms. Voice Assist will ask for the details it needs.
+      <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.035] p-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-teal-300/70">
+          Protocol in view
         </p>
+        <p className="mt-2 text-lg font-semibold text-white">{guideTitle}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-500">{guideSummary}</p>
+      </div>
+      <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+        <p className="text-sm font-semibold text-slate-200">Include these observations</p>
         <ul className="mt-5 space-y-3">
           {[
-            "Which station or device",
-            "Any message on the screen",
-            "What moved—or did not move",
+            "Exact device or station",
+            "Fault text or Atlas state read locally",
+            "What moved or did not move",
           ].map((item) => (
             <li key={item} className="flex items-center gap-3 text-sm text-slate-300">
               <span className="grid h-7 w-7 place-items-center rounded-lg bg-teal-300/[0.07] text-teal-300">
@@ -739,22 +749,12 @@ function ReadyPanel({
             </li>
           ))}
         </ul>
-      </div>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-        <button
-          type="button"
-          onClick={onStartTalking}
-          className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-teal-400 px-4 text-sm font-bold text-[#04100f] transition hover:bg-teal-300"
-        >
-          <Mic size={19} /> Start talking
-        </button>
-        <button
-          type="button"
-          onClick={onAddPhoto}
-          className="flex min-h-14 items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.03] px-4 text-sm font-semibold text-slate-200 transition hover:border-white/[0.16] hover:bg-white/[0.05]"
-        >
-          <ImagePlus size={19} /> Add a photo
-        </button>
+        <div className="mt-5 border-t border-white/[0.06] pt-4">
+          <p className="text-xs leading-5 text-slate-600">
+            Use the single voice, text, or photo composer beneath the conversation. Guidance is
+            grounded in {guideSource}.
+          </p>
+        </div>
       </div>
     </div>
   );
