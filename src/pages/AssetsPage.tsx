@@ -73,7 +73,7 @@ export function AssetsPage() {
             </select>
           </label>
         </div>
-        <div className="overflow-x-auto">
+        <div className="mobile-table-scroll overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-white/[0.018] text-[10px] uppercase tracking-[0.16em] text-slate-600">
               <tr>
@@ -245,7 +245,7 @@ function DeviceDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[#05080c]/85 backdrop-blur-sm" />
         <Dialog.Content
-          className="surface-panel fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl shadow-2xl focus:outline-none"
+          className="asset-dialog surface-panel fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl shadow-2xl focus:outline-none sm:w-[calc(100%-2rem)]"
           aria-describedby="register-description"
         >
           <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-5">

@@ -14,7 +14,7 @@ test("public route shows invite-only login without facility details", async ({ p
 
 test("login form has accessible names and large controls", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByLabel("Email address")).toBeVisible();
+  await expect(page.getByLabel("Username or email")).toBeVisible();
   await expect(page.getByLabel("Password")).toBeVisible();
-  await expect(page.getByRole("button", { name: /sign in securely/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /enter command center/i })).toBeVisible();
 });

@@ -5,14 +5,37 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: "html",
-  use: { baseURL: "http://127.0.0.1:4397", trace: "on-first-retry" },
+  use: {
+    baseURL: "http://127.0.0.1:4397",
+    screenshot: "only-on-failure",
+    trace: "on-first-retry",
+  },
   webServer: {
-    command: "pnpm exec vite preview --host 127.0.0.1 --port 4397",
+    command: "pnpm exec vite --host 127.0.0.1 --port 4397",
     port: 4397,
     reuseExistingServer: false,
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["Pixel 7"] } },
+    {
+      name: "iphone",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 3,
+        hasTouch: true,
+        isMobile: true,
+      },
+    },
+    {
+      name: "ipad",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 820, height: 1180 },
+        deviceScaleFactor: 2,
+        hasTouch: true,
+        isMobile: true,
+      },
+    },
   ],
 });

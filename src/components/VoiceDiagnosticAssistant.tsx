@@ -209,7 +209,7 @@ export function VoiceDiagnosticAssistant({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
             <button
               type="button"
               aria-pressed={autoSpeak}
@@ -217,7 +217,7 @@ export function VoiceDiagnosticAssistant({
                 setAutoSpeak((value) => !value);
                 if (autoSpeak) window.speechSynthesis?.cancel();
               }}
-              className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3.5 text-sm font-semibold text-slate-300 transition hover:border-white/[0.16] hover:bg-white/[0.05]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-sm font-semibold text-slate-300 transition hover:border-white/[0.16] hover:bg-white/[0.05] sm:px-3.5"
             >
               {autoSpeak ? <Volume2 size={18} /> : <VolumeX size={18} />}
               Read aloud {autoSpeak ? "on" : "off"}
@@ -226,7 +226,7 @@ export function VoiceDiagnosticAssistant({
               <button
                 type="button"
                 onClick={startOver}
-                className="inline-flex min-h-12 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold text-slate-400 transition hover:bg-white/[0.05] hover:text-white"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-400 transition hover:bg-white/[0.05] hover:text-white sm:px-3.5"
               >
                 <RotateCcw size={17} /> Start over
               </button>
@@ -362,7 +362,7 @@ export function VoiceDiagnosticAssistant({
               </div>
             )}
 
-            <div className="border-t border-white/[0.06] p-3 sm:p-4">
+            <div className="voice-composer border-t border-white/[0.06] p-3 sm:p-4">
               <div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
                 <button
                   type="button"

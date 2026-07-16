@@ -55,14 +55,14 @@ export function AppShell() {
   const current = navigation.find((item) => item.to === pathname)?.label ?? "Operations";
 
   return (
-    <div className="app-canvas min-h-screen text-slate-100">
+    <div className="app-canvas min-h-[100dvh] text-slate-100">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/[0.08] bg-[#070b11]/98 text-white shadow-[24px_0_70px_rgba(0,0,0,0.14)] transition-transform lg:translate-x-0",
+          "app-sidebar fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[min(18rem,88vw)] flex-col border-r border-white/[0.08] bg-[#070b11]/98 text-white shadow-[24px_0_70px_rgba(0,0,0,0.14)] transition-transform xl:w-72 xl:translate-x-0",
           sidebar ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-24 items-center justify-between border-b border-white/[0.07] px-6">
+        <div className="app-sidebar-header flex min-h-24 items-center justify-between border-b border-white/[0.07] px-5 sm:px-6">
           <div className="flex items-center gap-3.5">
             <LogoMark />
             <div>
@@ -73,7 +73,7 @@ export function AppShell() {
             </div>
           </div>
           <button
-            className="rounded-lg p-2 text-slate-500 hover:bg-white/[0.05] hover:text-white lg:hidden"
+            className="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 hover:bg-white/[0.05] hover:text-white xl:hidden"
             aria-label="Close navigation"
             onClick={() => setSidebar(false)}
           >
@@ -151,18 +151,18 @@ export function AppShell() {
 
       {sidebar && (
         <button
-          className="fixed inset-0 z-30 bg-black/65 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-black/65 backdrop-blur-sm xl:hidden"
           aria-label="Close navigation overlay"
           onClick={() => setSidebar(false)}
         />
       )}
 
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-20 flex h-20 items-center gap-3 border-b border-white/[0.07] bg-[#070b11]/90 px-4 backdrop-blur-xl sm:px-8">
+      <div className="xl:pl-72">
+        <header className="app-header sticky top-0 z-20 flex min-h-20 items-center gap-2.5 border-b border-white/[0.07] bg-[#070b11]/90 px-3 backdrop-blur-xl sm:gap-3 sm:px-6 lg:px-8">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="shrink-0 xl:hidden"
             aria-label="Open navigation"
             onClick={() => setSidebar(true)}
           >
@@ -170,9 +170,9 @@ export function AppShell() {
           </Button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-600">
-              <span>Great Lakes Regional Health</span>
-              <ChevronRight size={12} />
-              <span>All facilities</span>
+              <span className="hidden truncate sm:inline">Great Lakes Regional Health</span>
+              <ChevronRight className="hidden sm:block" size={12} />
+              <span className="truncate">All facilities</span>
             </div>
             <h1 className="mt-1 truncate text-lg font-semibold tracking-[-0.025em] text-slate-100">
               {current}
@@ -200,14 +200,14 @@ export function AppShell() {
             <Bell size={18} />
           </Button>
         </header>
-        <main className="mx-auto max-w-[1800px] p-4 sm:p-8 lg:p-10">
+        <main className="app-main mx-auto max-w-[1800px] p-3 sm:p-6 lg:p-8 2xl:p-10">
           <Outlet />
         </main>
       </div>
 
       {palette && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 p-4 pt-[15vh] backdrop-blur-sm"
+          className="command-palette fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 p-3 pt-[max(1rem,15dvh)] backdrop-blur-sm sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Command palette"

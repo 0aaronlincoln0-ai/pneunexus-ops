@@ -21,6 +21,8 @@
 }
 html {
   background: var(--ink-950);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 * {
   box-sizing: border-box;
@@ -29,9 +31,11 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--ink-950);
   color: #f8fafc;
   letter-spacing: -0.008em;
+  overscroll-behavior-y: none;
 }
 ::selection {
   background: rgba(53, 208, 194, 0.28);
@@ -40,7 +44,8 @@ body {
 button,
 a,
 input,
-select {
+select,
+textarea {
   -webkit-tap-highlight-color: transparent;
 }
 button,
@@ -48,8 +53,47 @@ a {
   touch-action: manipulation;
 }
 input,
-select {
+select,
+textarea {
   caret-color: var(--teal);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+.app-sidebar {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.app-sidebar-header {
+  min-height: calc(6rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+.app-header {
+  min-height: calc(5rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+.app-main {
+  padding-bottom: max(1.5rem, calc(1rem + env(safe-area-inset-bottom)));
+}
+.login-form-panel {
+  padding-top: max(2rem, calc(1rem + env(safe-area-inset-top)));
+  padding-bottom: max(2rem, calc(1rem + env(safe-area-inset-bottom)));
+}
+.command-palette {
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+}
+.asset-dialog {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.mobile-table-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
 }
 ::-webkit-scrollbar {
   width: 10px;
@@ -181,6 +225,9 @@ select {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.025) inset,
     0 20px 55px rgba(0, 0, 0, 0.2) inset;
+}
+.voice-composer {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 .voice-orb {
   position: relative;
@@ -421,5 +468,45 @@ select {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  .voice-assist-shell {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .voice-conversation {
+    min-height: min(31rem, calc(100dvh - 10rem));
+  }
+
+  .voice-orb {
+    width: 3.25rem;
+    height: 3.25rem;
+  }
+
+  .voice-orb-core {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+  }
+
+  .surface-panel:hover {
+    border-color: var(--line);
   }
 }

@@ -41,9 +41,9 @@ export function LoginScreen() {
   }
 
   return (
-    <main className="login-ambient relative min-h-screen overflow-hidden bg-[#05080c] text-slate-100">
+    <main className="login-ambient relative min-h-[100dvh] overflow-hidden bg-[#05080c] text-slate-100">
       <div className="login-grid pointer-events-none absolute inset-0 opacity-50" />
-      <div className="relative grid min-h-screen lg:grid-cols-[minmax(0,1.15fr)_minmax(430px,0.85fr)]">
+      <div className="relative grid min-h-[100dvh] lg:grid-cols-[minmax(0,1.15fr)_minmax(430px,0.85fr)]">
         <section className="relative hidden min-h-screen flex-col justify-between overflow-hidden px-12 py-10 lg:flex xl:px-16 xl:py-12">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3.5">
@@ -115,7 +115,7 @@ export function LoginScreen() {
           </div>
         </section>
 
-        <section className="relative flex min-h-screen items-center justify-center border-l border-white/[0.08] bg-[#080d13]/90 px-6 py-10 backdrop-blur-sm sm:px-10 lg:px-12 xl:px-16">
+        <section className="login-form-panel relative flex min-h-[100dvh] items-center justify-center border-l border-white/[0.08] bg-[#080d13]/90 px-5 py-8 backdrop-blur-sm sm:px-10 lg:px-12 xl:px-16">
           <div className="w-full max-w-[420px]">
             <div className="mb-14 flex items-center gap-3.5 lg:hidden">
               <LogoMark />
