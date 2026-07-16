@@ -56,11 +56,10 @@ const outputSchema = z.object({
 });
 
 function env(name: string): string | undefined {
-  return process.env[name] ??
-    (typeof Netlify === "undefined" ? undefined : Netlify.env.get(name));
+  return process.env[name] ?? (typeof Netlify === "undefined" ? undefined : Netlify.env.get(name));
 }
 
-const defaultDiagnosticModel = "gpt-4.1-mini";
+const defaultDiagnosticModel = "gpt-4o-mini";
 
 export default async (request: Request, context: Context) => {
   const id = requestId(context);
@@ -97,35 +96,41 @@ export default async (request: Request, context: Context) => {
     const priorConversation = input.conversation
       .map(({ role, text }) => `${role === "user" ? "Technician" : "Assistant"}: ${text}`)
       .join("\n");
-    const content: OpenAI.Responses.ResponseInputContent[] = [
+    const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
       {
-        type: "input_text",
+        type: "text",
         text: `APPROVED PROTOCOL EXCERPTS:\n${protocolContext}\n\nRECENT CONVERSATION:\n${priorConversation || "None"}\n\nCURRENT TECHNICIAN REPORT:\n${input.message}`,
       },
     ];
     if (input.imageDataUrl)
-      content.push({ type: "input_image", image_url: input.imageDataUrl, detail: "low" });
+      content.push({
+        type: "image_url",
+        image_url: { url: input.imageDataUrl, detail: "low" },
+      });
 
     const model = env("AI_DIAGNOSTIC_MODEL") ?? defaultDiagnosticModel;
     const client = new OpenAI({ apiKey, baseURL, timeout: 25_000, maxRetries: 0 });
-    const response = await client.responses.create({
+    const response = await client.chat.completions.create({
       model,
-      instructions: diagnosticSystemPrompt,
-      input: [{ role: "user", content }],
-      max_output_tokens: 1_600,
-      text: {
-        format: {
-          type: "json_schema",
+      messages: [
+        { role: "system", content: diagnosticSystemPrompt },
+        { role: "user", content },
+      ],
+      max_tokens: 1_600,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
           name: "diagnostic_turn",
           strict: true,
           schema: diagnosticResponseJsonSchema,
         },
       },
     });
-    if (!response.output_text) throw new Error("AI response did not contain output text");
+    const outputText = response.choices[0]?.message.content;
+    if (!outputText) throw new Error("AI response did not contain output text");
     let result: z.infer<typeof outputSchema>;
     try {
-      result = outputSchema.parse(JSON.parse(response.output_text));
+      result = outputSchema.parse(JSON.parse(outputText));
     } catch (error) {
       console.error(
         JSON.stringify({
@@ -133,8 +138,8 @@ export default async (request: Request, context: Context) => {
           event: "diagnostic.response.invalid",
           requestId: id,
           model,
-          responseStatus: response.status,
-          outputLength: response.output_text.length,
+          finishReason: response.choices[0]?.finish_reason ?? "unknown",
+          outputLength: outputText.length,
           errorType: error instanceof Error ? error.name : "unknown",
         }),
       );
