@@ -56,8 +56,11 @@ const outputSchema = z.object({
 });
 
 function env(name: string): string | undefined {
-  return typeof Netlify === "undefined" ? process.env[name] : Netlify.env.get(name);
+  return process.env[name] ??
+    (typeof Netlify === "undefined" ? undefined : Netlify.env.get(name));
 }
+
+const defaultDiagnosticModel = "gpt-4.1-mini";
 
 export default async (request: Request, context: Context) => {
   const id = requestId(context);
@@ -103,12 +106,13 @@ export default async (request: Request, context: Context) => {
     if (input.imageDataUrl)
       content.push({ type: "input_image", image_url: input.imageDataUrl, detail: "low" });
 
-    const client = new OpenAI({ apiKey, baseURL, timeout: 20_000, maxRetries: 1 });
+    const model = env("AI_DIAGNOSTIC_MODEL") ?? defaultDiagnosticModel;
+    const client = new OpenAI({ apiKey, baseURL, timeout: 25_000, maxRetries: 0 });
     const response = await client.responses.create({
-      model: env("AI_DIAGNOSTIC_MODEL") ?? "gpt-5-mini",
+      model,
       instructions: diagnosticSystemPrompt,
       input: [{ role: "user", content }],
-      max_output_tokens: 900,
+      max_output_tokens: 1_600,
       text: {
         format: {
           type: "json_schema",
@@ -119,7 +123,23 @@ export default async (request: Request, context: Context) => {
       },
     });
     if (!response.output_text) throw new Error("AI response did not contain output text");
-    const result = outputSchema.parse(JSON.parse(response.output_text));
+    let result: z.infer<typeof outputSchema>;
+    try {
+      result = outputSchema.parse(JSON.parse(response.output_text));
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "diagnostic.response.invalid",
+          requestId: id,
+          model,
+          responseStatus: response.status,
+          outputLength: response.output_text.length,
+          errorType: error instanceof Error ? error.name : "unknown",
+        }),
+      );
+      throw error;
+    }
 
     await databaseAuditLogProvider.append({
       organizationId: principal.organizationId,
@@ -130,7 +150,7 @@ export default async (request: Request, context: Context) => {
       outcome: "success",
       requestId: id,
       changeSummary: {
-        model: env("AI_DIAGNOSTIC_MODEL") ?? "gpt-5-mini",
+        model,
         imageProvided: Boolean(input.imageDataUrl),
         safetyStop: result.safetyStop,
         escalate: result.escalate,
