@@ -32,7 +32,10 @@ import {
 } from "../server/db/schema";
 import { capabilities } from "../server/security/capabilities";
 
-const url = process.env.DATABASE_URL ?? "postgres://pneunexus:pneunexus@localhost:5432/pneunexus";
+const url =
+  process.env.NETLIFY_DB_URL ??
+  process.env.DATABASE_URL ??
+  "postgres://pneunexus:pneunexus@localhost:5432/pneunexus";
 const client = postgres(url, { max: 1 });
 const db = drizzle(client);
 
@@ -403,6 +406,7 @@ async function seed() {
   }
 
   const passwordHash = await bcrypt.hash("DemoAccess!2026", 12);
+  const adminPasswordHash = await bcrypt.hash("admin", 12);
   const seededUsers = [];
   for (const [roleKey, roleName] of roleDefinitions) {
     const [user] = await db
@@ -410,7 +414,7 @@ async function seed() {
       .values({
         email: `${roleKey.replaceAll("_", ".")}@greatlakes.demo`,
         displayName: roleName,
-        passwordHash,
+        passwordHash: roleKey === "organization_admin" ? adminPasswordHash : passwordHash,
         emailVerifiedAt: new Date(),
         status: "active",
       })
@@ -592,7 +596,7 @@ async function seed() {
   console.log(
     `Seeded fictional Great Lakes Regional Health demo: ${campusRows.length} campuses, ${buildingRows.length} buildings, ${systemRows.length} systems, ${zoneRows.length} zones, ${deviceRows.length} devices, ${seededUsers.length} role users.`,
   );
-  console.log("Demo login: organization.admin@greatlakes.demo / DemoAccess!2026");
+  console.log("Temporary demo login: admin / admin");
 }
 
 try {

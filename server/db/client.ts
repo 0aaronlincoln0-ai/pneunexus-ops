@@ -13,8 +13,10 @@ let database: Database | undefined;
 
 export function getDatabase(): Database {
   const url =
-    typeof Netlify === "undefined" ? process.env.DATABASE_URL : Netlify.env.get("DATABASE_URL");
-  if (!url) throw new Error("DATABASE_URL is not configured");
+    typeof Netlify === "undefined"
+      ? process.env.NETLIFY_DB_URL ?? process.env.DATABASE_URL
+      : Netlify.env.get("NETLIFY_DB_URL") ?? Netlify.env.get("DATABASE_URL");
+  if (!url) throw new Error("NETLIFY_DB_URL or DATABASE_URL is not configured");
   database ??= createDatabase(url);
   return database;
 }

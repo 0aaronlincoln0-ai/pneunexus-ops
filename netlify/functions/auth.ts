@@ -23,13 +23,15 @@ import {
 } from "./_shared/session";
 
 const loginSchema = z.object({
-  email: z.string().trim().email().max(254),
-  password: z.string().min(12).max(128),
+  email: z.string().trim().min(1).max(254),
+  password: z.string().min(5).max(128),
 });
 
 async function login(request: Request, context: Context): Promise<Response> {
   const id = requestId(context);
   const { email, password } = loginSchema.parse(await request.json());
+  const normalizedEmail =
+    email.toLowerCase() === "admin" ? "organization.admin@greatlakes.demo" : email.toLowerCase();
   const rateLimitKey = `login:${context.ip ?? "unknown"}`;
   enforceRateLimit(rateLimitKey);
   const db = getDatabase();
@@ -40,7 +42,7 @@ async function login(request: Request, context: Context): Promise<Response> {
     .innerJoin(roles, eq(memberships.roleId, roles.id))
     .where(
       and(
-        eq(users.email, email.toLowerCase()),
+        eq(users.email, normalizedEmail),
         eq(users.status, "active"),
         eq(memberships.status, "active"),
       ),
