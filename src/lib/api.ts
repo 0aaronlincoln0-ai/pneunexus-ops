@@ -58,6 +58,15 @@ export interface BillingSummary {
   }>;
 }
 
+export interface OwnerAiSettingsStatus {
+  enabled: boolean;
+  configured: boolean;
+  model: string;
+  keyLastFour: string | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
 function hasLocalSession() {
   return (
     localStorage.getItem(localSessionKey) === "authenticated" ||
@@ -183,6 +192,40 @@ export async function transitionOrganization(
       credentials: "include",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
       body: JSON.stringify({ organizationId, transition }),
+    }),
+  );
+}
+
+export async function getOwnerSettings(): Promise<{ ai: OwnerAiSettingsStatus }> {
+  return parse(
+    await fetch("/api/owner-settings", { credentials: "include", cache: "no-store" }),
+  );
+}
+
+export async function saveOwnerAiSettings(
+  input: { apiKey: string; enabled: boolean; model: string },
+  csrfToken: string,
+): Promise<{ ai: OwnerAiSettingsStatus }> {
+  return parse(
+    await fetch("/api/owner-settings", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function setOwnerAiEnabled(
+  enabled: boolean,
+  csrfToken: string,
+): Promise<{ ai: OwnerAiSettingsStatus }> {
+  return parse(
+    await fetch("/api/owner-settings", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({ enabled }),
     }),
   );
 }

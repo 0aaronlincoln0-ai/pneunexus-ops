@@ -12,6 +12,7 @@ import {
   PackageSearch,
   ReceiptText,
   Search,
+  Settings,
   Stethoscope,
   Sun,
   X,
@@ -31,10 +32,15 @@ const navigation = [
   { to: "/facilities", label: "Site notes", icon: Building2 },
   { to: "/billing", label: "Billing", icon: ReceiptText },
   { to: "/admin", label: "Administrator", icon: ClipboardList },
+  { to: "/owner-settings", label: "Owner settings", icon: Settings },
 ] as const;
 
 function isAdministrator(role: string | undefined) {
   return ["organization_admin", "network_admin", "platform_super_admin"].includes(role ?? "");
+}
+
+function isOwner(role: string | undefined) {
+  return ["organization_admin", "platform_super_admin"].includes(role ?? "");
 }
 
 export function AppShell() {
@@ -61,7 +67,9 @@ export function AppShell() {
 
   const availableNavigation = navigation.filter(
     (item) =>
-      (item.to !== "/admin" && item.to !== "/billing") || isAdministrator(user?.role),
+      item.to === "/owner-settings"
+        ? isOwner(user?.role)
+        : (item.to !== "/admin" && item.to !== "/billing") || isAdministrator(user?.role),
   );
   const current = availableNavigation.find((item) => item.to === pathname)?.label ?? "Overview";
 

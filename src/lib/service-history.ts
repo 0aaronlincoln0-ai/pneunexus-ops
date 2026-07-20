@@ -1,6 +1,10 @@
 export interface ServicePhoto {
+  id?: string;
   name: string;
-  dataUrl: string;
+  dataUrl?: string;
+  url?: string;
+  mimeType?: string;
+  storedAt?: string;
 }
 
 export interface ServiceVideo {
@@ -33,6 +37,8 @@ export interface ServiceKnowledgeMatch {
   location: string;
   resolution: string;
   status: ServiceRecord["status"];
+  photoCount?: number;
+  photoUrls?: string[];
 }
 
 const storageKey = "resovii-service-history-v2";

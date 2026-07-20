@@ -9,8 +9,10 @@ export default (request: Request) => {
   if (request.method !== "GET") return json({ status: "not_found" }, { status: 404 });
   const diagnosticModel = env("AI_DIAGNOSTIC_MODEL") ?? "gpt-5-mini";
   const realtimeModel = env("AI_REALTIME_MODEL") ?? "gpt-realtime-2.1";
-  const hasOpenAiKey = Boolean(env("OPENAI_API_KEY"));
+  const openAiKey = env("OPENAI_API_KEY");
+  const hasOpenAiKey = Boolean(openAiKey?.startsWith("sk-"));
   const hasOpenAiGateway = Boolean(env("OPENAI_BASE_URL"));
+  const hasRuntimeOpenAiCredential = Boolean(openAiKey);
   const diagnosticProvider = hasOpenAiKey
     ? "openai"
     : hasOpenAiGateway
@@ -23,14 +25,16 @@ export default (request: Request) => {
     time: new Date().toISOString(),
     ai: {
       diagnostic: {
-        configured: hasOpenAiKey || hasOpenAiGateway,
+        configured: hasOpenAiKey || hasOpenAiGateway || hasRuntimeOpenAiCredential,
         model: diagnosticModel,
         provider: diagnosticProvider,
+        directOpenAiKeyConfigured: hasOpenAiKey,
+        gatewayConfigured: hasOpenAiGateway,
       },
       realtime: {
-        configured: hasOpenAiKey,
+        configured: hasRuntimeOpenAiCredential,
         model: realtimeModel,
-        provider: hasOpenAiKey ? "openai" : "none",
+        provider: hasRuntimeOpenAiCredential ? "openai" : "none",
       },
     },
   });

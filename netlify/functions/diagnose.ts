@@ -8,6 +8,7 @@ import {
   rankDiagnosticGuides,
 } from "../../server/ai/diagnostic";
 import { buildPocketTechSkills } from "../../server/ai/pocket-tech-skills";
+import { getOwnerOpenAiRuntimeSettings } from "../../server/owner-ai-settings";
 import { capabilities, requireCapability } from "../../server/security/capabilities";
 import { detectProhibitedContent } from "../../server/security/validation";
 import type { DiagnosticTurnResponse } from "../../src/lib/diagnostic-ai";
@@ -163,10 +164,12 @@ export default async (request: Request, context: Context) => {
     if (warnings.length)
       throw new HttpError(422, "Remove patient or clinical identifiers before using Voice Assist.");
 
-    const apiKey = env("OPENAI_API_KEY");
+    const ownerAi = await getOwnerOpenAiRuntimeSettings(principal.organizationId);
+    const apiKey = ownerAi.apiKey ?? env("OPENAI_API_KEY");
+    const directOpenAiApiKey = apiKey?.startsWith("sk-") ? apiKey : undefined;
     const gatewayBaseURL = env("OPENAI_BASE_URL");
-    const baseURL = apiKey ? undefined : gatewayBaseURL;
-    if (!apiKey && !gatewayBaseURL) {
+    const baseURL = directOpenAiApiKey ? undefined : gatewayBaseURL;
+    if (!directOpenAiApiKey && !gatewayBaseURL) {
       console.warn(
         JSON.stringify({
           level: "warn",
@@ -198,10 +201,10 @@ export default async (request: Request, context: Context) => {
         image_url: { url: input.imageDataUrl, detail: "low" },
       });
 
-    const model = env("AI_DIAGNOSTIC_MODEL") ?? defaultDiagnosticModel;
-    const provider = apiKey ? "openai" : baseURL ? "netlify-ai-gateway" : "none";
+    const model = ownerAi.apiKey ? ownerAi.model : (env("AI_DIAGNOSTIC_MODEL") ?? defaultDiagnosticModel);
+    const provider = directOpenAiApiKey ? "openai" : baseURL ? "netlify-ai-gateway" : "none";
     const client = new OpenAI({
-      apiKey: apiKey ?? "netlify-ai-gateway",
+      apiKey: directOpenAiApiKey ?? apiKey ?? "netlify-ai-gateway",
       ...(baseURL ? { baseURL } : {}),
       timeout: 25_000,
       maxRetries: 1,

@@ -43,6 +43,11 @@ const AdminServicePage = lazy(() =>
     default: module.AdminServicePage,
   })),
 );
+const OwnerSettingsPage = lazy(() =>
+  import("./pages/OwnerSettingsPage").then((module) => ({
+    default: module.OwnerSettingsPage,
+  })),
+);
 const PrivacyPage = lazy(() =>
   import("./pages/PrivacyPage").then((module) => ({ default: module.PrivacyPage })),
 );
@@ -115,6 +120,11 @@ const adminServiceRoute = createRoute({
   path: "/admin",
   component: AdminServicePage,
 });
+const ownerSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/owner-settings",
+  component: OwnerSettingsPage,
+});
 const privacyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/privacy",
@@ -139,6 +149,7 @@ const routeTree = rootRoute.addChildren([
   informationRoute,
   billingRoute,
   adminServiceRoute,
+  ownerSettingsRoute,
   privacyRoute,
   supportRoute,
   termsRoute,

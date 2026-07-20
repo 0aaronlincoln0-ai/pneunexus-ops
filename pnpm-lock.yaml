@@ -15,6 +15,9 @@ importers:
       '@hookform/resolvers':
         specifier: 5.4.0
         version: 5.4.0(react-hook-form@7.81.0(react@19.2.7))
+      '@netlify/blobs':
+        specifier: ^10.7.9
+        version: 10.7.9
       '@netlify/functions':
         specifier: 5.3.0
         version: 5.3.0

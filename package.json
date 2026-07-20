@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "5.4.0",
+    "@netlify/blobs": "^10.7.9",
     "@netlify/functions": "5.3.0",
     "@netlify/vite-plugin": "2.12.8",
     "@radix-ui/react-dialog": "1.1.19",
