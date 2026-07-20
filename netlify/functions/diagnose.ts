@@ -60,6 +60,14 @@ function env(name: string): string | undefined {
 }
 
 const defaultDiagnosticModel = "gpt-4o-mini";
+const diagnosticResponseFormat = {
+  type: "json_schema",
+  json_schema: {
+    name: "diagnostic_turn",
+    strict: true,
+    schema: diagnosticResponseJsonSchema,
+  },
+} as const;
 
 function localGuidedResponse(input: z.infer<typeof inputSchema>): DiagnosticTurnResponse {
   const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
@@ -127,8 +135,16 @@ export default async (request: Request, context: Context) => {
 
     const apiKey = env("OPENAI_API_KEY");
     const baseURL = env("OPENAI_BASE_URL");
-    if (!apiKey && !baseURL)
+    if (!apiKey && !baseURL) {
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          event: "diagnostic.ai.not_configured",
+          requestId: id,
+        }),
+      );
       return json(localGuidedResponse(input));
+    }
 
     const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
     const protocolContext = diagnosticProtocolContext(
@@ -165,12 +181,12 @@ export default async (request: Request, context: Context) => {
         messages: [
           {
             role: "system",
-            content: `${diagnosticSystemPrompt}\n\nReturn only a valid JSON object that matches this required schema:\n${JSON.stringify(diagnosticResponseJsonSchema)}`,
+            content: diagnosticSystemPrompt,
           },
           { role: "user", content },
         ],
-        max_tokens: 1_600,
-        response_format: { type: "json_object" },
+        max_completion_tokens: 1_600,
+        response_format: diagnosticResponseFormat,
       });
     } catch (error) {
       console.warn(
