@@ -3,7 +3,7 @@ import type { DiagnosticTurnInput, DiagnosticTurnResponse } from "./diagnostic-a
 import { emptyWorkspaceData, localAdminUser } from "./local-demo";
 import { loadLocalWorkspace } from "./local-workspace";
 import type { ServiceRecord } from "./service-history";
-import { findServiceKnowledge } from "./service-history";
+import { findServiceKnowledge, loadServiceHistory, saveServiceHistory } from "./service-history";
 import { rankTroubleshootingGuides, troubleshootingGuides } from "./troubleshooting";
 
 const localAdminEnabled = import.meta.env.DEV && import.meta.env.VITE_LOCAL_ADMIN !== "false";
@@ -232,6 +232,7 @@ export async function setOwnerAiEnabled(
 }
 
 export async function getServiceMemoryRecords(): Promise<{ records: ServiceRecord[] }> {
+  if (localAdminEnabled) return { records: loadServiceHistory() };
   return parse(
     await fetch("/api/service-memory", { credentials: "include", cache: "no-store" }),
   );
@@ -251,6 +252,34 @@ export async function createServiceMemoryRecord(
   },
   csrfToken: string,
 ): Promise<{ record: ServiceRecord }> {
+  if (localAdminEnabled) {
+    const record: ServiceRecord = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      reportedBy: localAdminUser.displayName,
+      title: input.title,
+      equipment: input.equipment || "Equipment not entered",
+      location: input.location || "Location not entered",
+      symptom: input.symptom,
+      resolution: input.resolution,
+      followUp: input.followUp || "No follow-up recorded.",
+      instructions: input.instructions,
+      status: input.status,
+      photos: input.photos.map((photo) => {
+        const mimeType = photo.dataUrl.match(/^data:([^;]+)/)?.[1];
+        return {
+          id: crypto.randomUUID(),
+          name: photo.name,
+          dataUrl: photo.dataUrl,
+          ...(mimeType ? { mimeType } : {}),
+          storedAt: new Date().toISOString(),
+        };
+      }),
+      videos: [],
+    };
+    saveServiceHistory([record, ...loadServiceHistory()]);
+    return { record };
+  }
   return parse(
     await fetch("/api/service-memory", {
       method: "POST",

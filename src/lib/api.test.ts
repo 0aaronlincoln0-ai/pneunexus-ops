@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getBootstrap, getSession, login, logout, registerAccount } from "./api";
+import {
+  createServiceMemoryRecord,
+  getBootstrap,
+  getServiceMemoryRecords,
+  getSession,
+  login,
+  logout,
+  registerAccount,
+} from "./api";
 
 describe("local development administrator", () => {
   beforeEach(() => localStorage.clear());
@@ -29,5 +37,25 @@ describe("local development administrator", () => {
     });
     expect(session.user.role).toBe("organization_admin");
     expect((await getBootstrap()).devices).toEqual([]);
+  });
+
+  it("keeps service memory usable in local demo mode", async () => {
+    const { record } = await createServiceMemoryRecord(
+      {
+        title: "Station full bin",
+        equipment: "STA-224",
+        location: "Lab receiving",
+        symptom: "Full bin alarm remained active.",
+        resolution: "Cleared debris and verified the sensor changed state.",
+        followUp: "Monitor next shift.",
+        instructions: ["Verify one self-send before closeout."],
+        status: "resolved",
+        photos: [{ name: "sensor.jpg", dataUrl: "data:image/jpeg;base64,AAAA" }],
+      },
+      "local-development",
+    );
+
+    expect(record.photos[0]?.dataUrl).toBe("data:image/jpeg;base64,AAAA");
+    expect((await getServiceMemoryRecords()).records[0]?.title).toBe("Station full bin");
   });
 });

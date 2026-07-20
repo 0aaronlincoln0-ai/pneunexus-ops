@@ -207,8 +207,12 @@ export function VoiceDiagnosticAssistant({
         csrfToken,
       );
       setResult(nextResult);
-      setGuideId(nextResult.recommendedGuideId);
-      guideIdRef.current = nextResult.recommendedGuideId;
+      const nextGuideId =
+        nextResult.recommendedGuideId === "needs-clarification"
+          ? undefined
+          : nextResult.recommendedGuideId;
+      setGuideId(nextGuideId);
+      guideIdRef.current = nextGuideId;
       setCompletedStepIndexes(nextCompletedStepIndexes);
       completedStepIndexesRef.current = nextCompletedStepIndexes;
       setPhoto(null);
@@ -290,8 +294,12 @@ export function VoiceDiagnosticAssistant({
         csrf,
       );
       setResult(nextResult);
-      guideIdRef.current = nextResult.recommendedGuideId;
-      setGuideId(nextResult.recommendedGuideId);
+      const nextGuideId =
+        nextResult.recommendedGuideId === "needs-clarification"
+          ? undefined
+          : nextResult.recommendedGuideId;
+      guideIdRef.current = nextGuideId;
+      setGuideId(nextGuideId);
       setCompletedStepIndexes(nextCompletedStepIndexes);
       completedStepIndexesRef.current = nextCompletedStepIndexes;
       void typeAssistantResponse(nextResult.speech);
