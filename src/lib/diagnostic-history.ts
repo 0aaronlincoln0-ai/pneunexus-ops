@@ -7,6 +7,7 @@ export interface DiagnosticHistoryEntry {
   title: string;
   deviceContext?: string;
   guideId?: string;
+  completedStepIndexes?: number[];
   messages: DiagnosticConversationMessage[];
 }
 

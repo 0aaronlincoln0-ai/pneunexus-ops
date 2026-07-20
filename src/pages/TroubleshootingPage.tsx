@@ -38,7 +38,9 @@ export function TroubleshootingPage() {
               <Stethoscope size={18} />
             </span>
             <label className="block w-full sm:max-w-md">
-              <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Affected equipment</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">
+                Affected equipment
+              </span>
               <select
                 value={deviceId}
                 onChange={(event) => setDeviceId(event.target.value)}
@@ -63,6 +65,7 @@ export function TroubleshootingPage() {
       )}
 
       <VoiceDiagnosticAssistant
+        {...(selectedDevice ? { deviceId: selectedDevice.id } : {})}
         {...(deviceContext ? { deviceContext } : {})}
         {...(selectedDevice
           ? { deviceLabel: `${selectedDevice.assetTag} - ${selectedDevice.type}` }

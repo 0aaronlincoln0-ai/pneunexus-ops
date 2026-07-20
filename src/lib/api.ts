@@ -144,9 +144,7 @@ export async function logout(csrfToken: string): Promise<void> {
 }
 
 export async function getBillingSummary(): Promise<BillingSummary> {
-  return parse(
-    await fetch("/api/billing", { credentials: "include", cache: "no-store" }),
-  );
+  return parse(await fetch("/api/billing", { credentials: "include", cache: "no-store" }));
 }
 
 export async function getPlatformOrganizations(csrfToken: string): Promise<{
@@ -264,6 +262,7 @@ export async function diagnose(
             instruction: step.instruction,
             expected: step.expected,
             sourceGuideId: guide.id,
+            stepIndex: nextIndex,
           }
         : null,
       followUpQuestion,

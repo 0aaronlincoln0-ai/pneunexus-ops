@@ -1,6 +1,9 @@
 import type { Config, Context } from "@netlify/functions";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import OpenAI from "openai";
 import { z } from "zod";
+import { getDatabase } from "../../server/db/client";
+import { campuses, devices, workOrders } from "../../server/db/schema";
 import {
   diagnosticProtocolContext,
   diagnosticResponseJsonSchema,
@@ -17,6 +20,7 @@ import { authenticateRequest } from "./_shared/session";
 
 const inputSchema = z.object({
   message: z.string().trim().min(2).max(1_200),
+  deviceId: z.string().uuid().optional(),
   deviceContext: z.string().trim().max(240).optional(),
   guideId: z.string().trim().max(80).optional(),
   completedStepIndexes: z.array(z.number().int().min(0).max(30)).max(30).default([]),
@@ -59,9 +63,102 @@ function env(name: string): string | undefined {
   return process.env[name] ?? (typeof Netlify === "undefined" ? undefined : Netlify.env.get(name));
 }
 
-const defaultDiagnosticModel = "gpt-4o-mini";
+const defaultDiagnosticModel = "gpt-5.4";
 
-function localGuidedResponse(input: z.infer<typeof inputSchema>): DiagnosticTurnResponse {
+type ServiceKnowledge = DiagnosticTurnResponse["serviceKnowledge"];
+
+async function loadServiceResearch(
+  input: z.infer<typeof inputSchema>,
+  organizationId: string,
+  facilityIds: ReadonlySet<string>,
+): Promise<ServiceKnowledge> {
+  try {
+    const allowedCampusIds = facilityIds.has("*") ? undefined : [...facilityIds];
+    if (allowedCampusIds?.length === 0) return [];
+    const rows = await getDatabase()
+      .select({
+        id: workOrders.id,
+        number: workOrders.number,
+        problem: workOrders.problemDescription,
+        findings: workOrders.diagnosticFindings,
+        resolution: workOrders.correctiveAction,
+        status: workOrders.status,
+        deviceAssetTag: devices.assetTag,
+        deviceEquipmentTag: devices.equipmentTag,
+        campusName: campuses.name,
+        updatedAt: workOrders.updatedAt,
+      })
+      .from(workOrders)
+      .leftJoin(devices, eq(workOrders.deviceId, devices.id))
+      .innerJoin(campuses, eq(workOrders.campusId, campuses.id))
+      .where(
+        and(
+          eq(workOrders.organizationId, organizationId),
+          inArray(workOrders.status, ["completed", "verified", "closed"]),
+          isNotNull(workOrders.correctiveAction),
+          isNull(workOrders.archivedAt),
+          input.deviceId ? eq(workOrders.deviceId, input.deviceId) : undefined,
+          allowedCampusIds ? inArray(workOrders.campusId, allowedCampusIds) : undefined,
+        ),
+      )
+      .orderBy(desc(workOrders.updatedAt))
+      .limit(24);
+
+    const terms = [input.deviceContext, input.message]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((term) => term.length > 2);
+
+    return rows
+      .map((row) => {
+        const searchable = [
+          row.problem,
+          row.findings,
+          row.resolution,
+          row.deviceAssetTag,
+          row.deviceEquipmentTag,
+          row.campusName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        const score = terms.reduce(
+          (total, term) => total + (searchable.includes(term) ? 1 : 0),
+          input.deviceId ? 2 : 0,
+        );
+        return { row, score };
+      })
+      .filter(({ score }) => score > 0)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 4)
+      .map(({ row }) => ({
+        id: row.id,
+        title: `${row.number}: ${row.problem}`,
+        equipment:
+          [row.deviceAssetTag, row.deviceEquipmentTag].filter(Boolean).join(" - ") ||
+          "System record",
+        location: row.campusName,
+        resolution: row.resolution ?? "Resolution was not recorded.",
+        status: "resolved" as const,
+      }));
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "diagnostic.service_research.unavailable",
+        errorType: error instanceof Error ? error.name : "unknown",
+      }),
+    );
+    return [];
+  }
+}
+
+function localGuidedResponse(
+  input: z.infer<typeof inputSchema>,
+  serviceKnowledge: ServiceKnowledge = [],
+): DiagnosticTurnResponse {
   const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
   const guide = rankDiagnosticGuides(diagnosticQuery, input.guideId)[0];
   if (!guide) throw new HttpError(404, "No reviewed diagnostic procedure matches this report");
@@ -90,13 +187,14 @@ function localGuidedResponse(input: z.infer<typeof inputSchema>): DiagnosticTurn
           instruction: step.instruction,
           expected: step.expected,
           sourceGuideId: guide.id,
+          stepIndex: nextStepIndex,
         }
       : null,
     followUpQuestion,
     evidenceToCollect: step ? guide.tools.slice(0, 4) : guide.verification.slice(0, 3),
     escalate: !step,
     escalationReason: !step ? "Reviewed procedure steps are complete." : null,
-    serviceKnowledge: [],
+    serviceKnowledge,
     mode: "local-guided",
   };
 }
@@ -104,6 +202,7 @@ function localGuidedResponse(input: z.infer<typeof inputSchema>): DiagnosticTurn
 export default async (request: Request, context: Context) => {
   const id = requestId(context);
   let parsedInput: z.infer<typeof inputSchema> | undefined;
+  let serviceKnowledge: ServiceKnowledge = [];
   try {
     if (request.method !== "POST")
       return json({ error: "Method not allowed", requestId: id }, { status: 405 });
@@ -125,10 +224,23 @@ export default async (request: Request, context: Context) => {
     if (warnings.length)
       throw new HttpError(422, "Remove patient or clinical identifiers before using Voice Assist.");
 
+    serviceKnowledge = await loadServiceResearch(
+      input,
+      principal.organizationId,
+      principal.facilityIds,
+    );
+    const serviceResearchContext = serviceKnowledge.length
+      ? serviceKnowledge
+          .map(
+            (record, index) =>
+              `${index + 1}. ${record.title}\nEquipment: ${record.equipment}\nLocation: ${record.location}\nRecorded resolution: ${record.resolution}`,
+          )
+          .join("\n\n")
+      : "No relevant resolved service records were found.";
+
     const apiKey = env("OPENAI_API_KEY");
     const baseURL = env("OPENAI_BASE_URL");
-    if (!apiKey && !baseURL)
-      return json(localGuidedResponse(input));
+    if (!apiKey && !baseURL) return json(localGuidedResponse(input, serviceKnowledge));
 
     const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
     const protocolContext = diagnosticProtocolContext(
@@ -139,16 +251,17 @@ export default async (request: Request, context: Context) => {
     const priorConversation = input.conversation
       .map(({ role, text }) => `${role === "user" ? "Technician" : "Assistant"}: ${text}`)
       .join("\n");
-    const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+    const content: OpenAI.Responses.ResponseInputContent[] = [
       {
-        type: "text",
-        text: `APPROVED PROTOCOL EXCERPTS:\n${protocolContext}\n\nSAVED EQUIPMENT CONTEXT:\n${input.deviceContext || "None selected"}\n\nRECENT CONVERSATION:\n${priorConversation || "None"}\n\nCURRENT TECHNICIAN REPORT:\n${input.message}`,
+        type: "input_text",
+        text: `APPROVED PROTOCOL EXCERPTS:\n${protocolContext}\n\nRELATED RESOLVED SERVICE RECORDS (supporting evidence only):\n${serviceResearchContext}\n\nSAVED EQUIPMENT CONTEXT:\n${input.deviceContext || "None selected"}\n\nRECENT CONVERSATION:\n${priorConversation || "None"}\n\nCURRENT TECHNICIAN REPORT:\n${input.message}`,
       },
     ];
     if (input.imageDataUrl)
       content.push({
-        type: "image_url",
-        image_url: { url: input.imageDataUrl, detail: "low" },
+        type: "input_image",
+        image_url: input.imageDataUrl,
+        detail: "low",
       });
 
     const model = env("AI_DIAGNOSTIC_MODEL") ?? defaultDiagnosticModel;
@@ -158,19 +271,22 @@ export default async (request: Request, context: Context) => {
       timeout: 25_000,
       maxRetries: 1,
     });
-    let response: Awaited<ReturnType<typeof client.chat.completions.create>>;
+    let response: Awaited<ReturnType<typeof client.responses.create>>;
     try {
-      response = await client.chat.completions.create({
+      response = await client.responses.create({
         model,
-        messages: [
-          {
-            role: "system",
-            content: `${diagnosticSystemPrompt}\n\nReturn only a valid JSON object that matches this required schema:\n${JSON.stringify(diagnosticResponseJsonSchema)}`,
+        instructions: diagnosticSystemPrompt,
+        input: [{ role: "user", content }],
+        reasoning: { effort: "medium" },
+        max_output_tokens: 1_600,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "diagnostic_turn",
+            schema: diagnosticResponseJsonSchema,
+            strict: true,
           },
-          { role: "user", content },
-        ],
-        max_tokens: 1_600,
-        response_format: { type: "json_object" },
+        },
       });
     } catch (error) {
       console.warn(
@@ -181,9 +297,9 @@ export default async (request: Request, context: Context) => {
           errorType: error instanceof Error ? error.name : "unknown",
         }),
       );
-      return json(localGuidedResponse(input));
+      return json(localGuidedResponse(input, serviceKnowledge));
     }
-    const outputText = response.choices[0]?.message.content;
+    const outputText = response.output_text;
     if (!outputText) {
       console.error(
         JSON.stringify({
@@ -191,12 +307,11 @@ export default async (request: Request, context: Context) => {
           event: "diagnostic.response.empty",
           requestId: id,
           model,
-          choiceCount: response.choices.length,
-          finishReason: response.choices[0]?.finish_reason ?? "unknown",
-          refusal: Boolean(response.choices[0]?.message.refusal),
+          status: response.status,
+          incompleteReason: response.incomplete_details?.reason ?? "unknown",
         }),
       );
-      return json(localGuidedResponse(input));
+      return json(localGuidedResponse(input, serviceKnowledge));
     }
     let result: z.infer<typeof outputSchema>;
     try {
@@ -208,12 +323,12 @@ export default async (request: Request, context: Context) => {
           event: "diagnostic.response.invalid",
           requestId: id,
           model,
-          finishReason: response.choices[0]?.finish_reason ?? "unknown",
+          status: response.status,
           outputLength: outputText.length,
           errorType: error instanceof Error ? error.name : "unknown",
         }),
       );
-      return json(localGuidedResponse(input));
+      return json(localGuidedResponse(input, serviceKnowledge));
     }
 
     const approvedGuides = rankDiagnosticGuides(diagnosticQuery, input.guideId);
@@ -243,12 +358,13 @@ export default async (request: Request, context: Context) => {
     const invalidStepSelection = Boolean(result.nextStep && (!selectedStepGuide || !selectedStep));
     const recommendedGuide = selectedStepGuide ?? modelRecommendedGuide;
     const nextStep =
-      selectedStep && selectedStepGuide
+      selectedStep && selectedStepGuide && approvedStepIndex !== undefined
         ? {
             title: selectedStep.title,
             instruction: selectedStep.instruction,
             expected: selectedStep.expected,
             sourceGuideId: selectedStepGuide.id,
+            stepIndex: approvedStepIndex,
           }
         : null;
     const safetyStop = Boolean(selectedStep?.requiresShutdown) || result.safetyStop;
@@ -279,7 +395,7 @@ export default async (request: Request, context: Context) => {
       escalationReason: invalidStepSelection
         ? "The AI selection did not map to a reviewed protocol step."
         : result.escalationReason,
-      serviceKnowledge: [],
+      serviceKnowledge,
       mode: "ai-gateway",
     };
 
@@ -311,7 +427,7 @@ export default async (request: Request, context: Context) => {
           errorMessage: error instanceof Error ? error.message : "unknown",
         }),
       );
-      return json(localGuidedResponse(parsedInput));
+      return json(localGuidedResponse(parsedInput, serviceKnowledge));
     }
     return errorResponse(error, id);
   }

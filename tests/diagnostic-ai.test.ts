@@ -4,6 +4,7 @@ import {
   diagnosticSystemPrompt,
   rankDiagnosticGuides,
 } from "../server/ai/diagnostic";
+import { mergeCompletedStepIndexes } from "../src/lib/diagnostic-ai";
 
 describe("AI diagnostic grounding", () => {
   it("ranks a missing carrier report to the missing-carrier protocol", () => {
@@ -33,5 +34,13 @@ describe("AI diagnostic grounding", () => {
     expect(diagnosticSystemPrompt).toContain("Never bypass lockout/tagout");
     expect(diagnosticSystemPrompt).toContain("Never invent");
     expect(diagnosticSystemPrompt).toContain("numbered step that exist");
+    expect(diagnosticSystemPrompt).toContain("resolved service records");
+    expect(diagnosticSystemPrompt).toContain("supporting evidence");
+  });
+
+  it("advances completed checks without duplicating step indexes", () => {
+    expect(mergeCompletedStepIndexes([], 0)).toEqual([0]);
+    expect(mergeCompletedStepIndexes([2, 0], 1)).toEqual([0, 1, 2]);
+    expect(mergeCompletedStepIndexes([0, 1], 1)).toEqual([0, 1]);
   });
 });

@@ -3,6 +3,7 @@ export interface DiagnosticNextStep {
   instruction: string;
   expected: string;
   sourceGuideId: string;
+  stepIndex: number;
 }
 
 export interface DiagnosticTurnResponse {
@@ -35,9 +36,15 @@ export interface DiagnosticConversationMessage {
 
 export interface DiagnosticTurnInput {
   message: string;
+  deviceId?: string;
   guideId?: string;
   completedStepIndexes: number[];
   conversation: DiagnosticConversationMessage[];
   deviceContext?: string;
   imageDataUrl?: string;
+}
+
+export function mergeCompletedStepIndexes(indexes: number[], completedIndex?: number): number[] {
+  if (completedIndex === undefined) return indexes;
+  return [...new Set([...indexes, completedIndex])].sort((left, right) => left - right);
 }

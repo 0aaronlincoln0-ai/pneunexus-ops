@@ -20,7 +20,11 @@ import {
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { useAuth } from "../auth";
 import * as api from "../lib/api";
-import type { DiagnosticConversationMessage, DiagnosticTurnResponse } from "../lib/diagnostic-ai";
+import {
+  mergeCompletedStepIndexes,
+  type DiagnosticConversationMessage,
+  type DiagnosticTurnResponse,
+} from "../lib/diagnostic-ai";
 import {
   diagnosticHistoryTitle,
   loadDiagnosticHistory,
@@ -32,6 +36,7 @@ import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
 
 interface VoiceDiagnosticAssistantProps {
+  deviceId?: string;
   deviceContext?: string;
   deviceLabel?: string;
 }
@@ -39,6 +44,7 @@ interface VoiceDiagnosticAssistantProps {
 type AssistantPhase = "ready" | "listening" | "thinking" | "speaking";
 
 export function VoiceDiagnosticAssistant({
+  deviceId,
   deviceContext,
   deviceLabel,
 }: VoiceDiagnosticAssistantProps) {
@@ -52,6 +58,7 @@ export function VoiceDiagnosticAssistant({
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [sessionId, setSessionId] = useState<string>(createSessionId);
   const [guideId, setGuideId] = useState<string | undefined>();
+  const [completedStepIndexes, setCompletedStepIndexes] = useState<number[]>([]);
   const [history, setHistory] = useState<DiagnosticHistoryEntry[]>(loadDiagnosticHistory);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
@@ -83,10 +90,11 @@ export function VoiceDiagnosticAssistant({
         title: diagnosticHistoryTitle(messages),
         ...(deviceContext ? { deviceContext } : {}),
         ...(guideId ? { guideId } : {}),
+        ...(completedStepIndexes.length ? { completedStepIndexes } : {}),
         messages,
       }),
     );
-  }, [deviceContext, guideId, messages, sessionId]);
+  }, [completedStepIndexes, deviceContext, guideId, messages, sessionId]);
 
   useEffect(
     () => () => {
@@ -128,7 +136,7 @@ export function VoiceDiagnosticAssistant({
     });
   }
 
-  async function sendMessage(message: string) {
+  async function sendMessage(message: string, completedStepIndex?: number) {
     const cleaned = message.trim();
     if (!cleaned || busy) return;
     if (!csrfToken) {
@@ -138,6 +146,10 @@ export function VoiceDiagnosticAssistant({
       return;
     }
     const conversation = messages.slice(-8);
+    const nextCompletedStepIndexes = mergeCompletedStepIndexes(
+      completedStepIndexes,
+      completedStepIndex,
+    );
     setMessages((current) => [...current, { role: "user", text: cleaned }]);
     setInput("");
     setError(null);
@@ -146,8 +158,9 @@ export function VoiceDiagnosticAssistant({
       const nextResult = await api.diagnose(
         {
           message: cleaned,
+          ...(deviceId ? { deviceId } : {}),
           ...(guideId ? { guideId } : {}),
-          completedStepIndexes: [],
+          completedStepIndexes: nextCompletedStepIndexes,
           conversation,
           ...(deviceContext ? { deviceContext } : {}),
           ...(photo ? { imageDataUrl: photo.dataUrl } : {}),
@@ -155,6 +168,9 @@ export function VoiceDiagnosticAssistant({
         csrfToken,
       );
       setResult(nextResult);
+      setCompletedStepIndexes(
+        nextResult.recommendedGuideId === guideId ? nextCompletedStepIndexes : [],
+      );
       setGuideId(nextResult.recommendedGuideId);
       setPhoto(null);
       if (autoSpeak) speakText(nextResult.speech);
@@ -231,6 +247,7 @@ export function VoiceDiagnosticAssistant({
     setError(null);
     setPhase("ready");
     setGuideId(undefined);
+    setCompletedStepIndexes([]);
     setSessionId(createSessionId());
     sessionCreatedAtRef.current = new Date().toISOString();
   }
@@ -242,6 +259,7 @@ export function VoiceDiagnosticAssistant({
     sessionCreatedAtRef.current = entry.createdAt;
     setMessages(entry.messages);
     setGuideId(entry.guideId);
+    setCompletedStepIndexes(entry.completedStepIndexes ?? []);
     setResult(null);
     setPhoto(null);
     setInput("");
@@ -491,7 +509,7 @@ export function VoiceDiagnosticAssistant({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.17em] text-teal-300/70">
-              Case history
+                Case history
               </p>
               <p className="mt-1 text-sm text-slate-500">Resume a prior diagnostic case</p>
             </div>
@@ -508,7 +526,7 @@ export function VoiceDiagnosticAssistant({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.17em] text-teal-300/70">
-              Current instruction
+                Current instruction
               </p>
               <p className="mt-1 text-sm text-slate-500">One approved action at a time</p>
             </div>
@@ -529,7 +547,12 @@ export function VoiceDiagnosticAssistant({
           ) : result ? (
             <CurrentStep
               result={result}
-              onExpected={() => void sendMessage("The check matched the expected result.")}
+              onExpected={() =>
+                void sendMessage(
+                  "The check matched the expected result.",
+                  result.nextStep?.stepIndex,
+                )
+              }
               onDifferent={describeDifferentResult}
               onCannotComplete={() =>
                 void sendMessage(
