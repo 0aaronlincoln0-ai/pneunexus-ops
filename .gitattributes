@@ -1,0 +1,7 @@
+.gitattributes text eol=lf
+
+# Database migrations are checksummed by Netlify. Keep their on-disk bytes
+# consistent on Windows and Linux so an applied migration is never reinterpreted.
+drizzle/**/*.sql text eol=lf
+drizzle/meta/*.json text eol=lf
+netlify/database/migrations/** text eol=lf
