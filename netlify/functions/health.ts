@@ -11,6 +11,11 @@ export default (request: Request) => {
   const realtimeModel = env("AI_REALTIME_MODEL") ?? "gpt-realtime-2.1";
   const hasOpenAiKey = Boolean(env("OPENAI_API_KEY"));
   const hasOpenAiGateway = Boolean(env("OPENAI_BASE_URL"));
+  const diagnosticProvider = hasOpenAiKey
+    ? "openai"
+    : hasOpenAiGateway
+      ? "netlify-ai-gateway"
+      : "none";
 
   return json({
     status: "ok",
@@ -20,7 +25,7 @@ export default (request: Request) => {
       diagnostic: {
         configured: hasOpenAiKey || hasOpenAiGateway,
         model: diagnosticModel,
-        provider: hasOpenAiGateway ? "netlify-ai-gateway" : hasOpenAiKey ? "openai" : "none",
+        provider: diagnosticProvider,
       },
       realtime: {
         configured: hasOpenAiKey,

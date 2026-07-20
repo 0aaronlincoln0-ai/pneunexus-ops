@@ -164,8 +164,9 @@ export default async (request: Request, context: Context) => {
       throw new HttpError(422, "Remove patient or clinical identifiers before using Voice Assist.");
 
     const apiKey = env("OPENAI_API_KEY");
-    const baseURL = env("OPENAI_BASE_URL");
-    if (!apiKey && !baseURL) {
+    const gatewayBaseURL = env("OPENAI_BASE_URL");
+    const baseURL = apiKey ? undefined : gatewayBaseURL;
+    if (!apiKey && !gatewayBaseURL) {
       console.warn(
         JSON.stringify({
           level: "warn",
@@ -198,7 +199,7 @@ export default async (request: Request, context: Context) => {
       });
 
     const model = env("AI_DIAGNOSTIC_MODEL") ?? defaultDiagnosticModel;
-    const provider = baseURL ? "netlify-ai-gateway" : apiKey ? "openai" : "none";
+    const provider = apiKey ? "openai" : baseURL ? "netlify-ai-gateway" : "none";
     const client = new OpenAI({
       apiKey: apiKey ?? "netlify-ai-gateway",
       ...(baseURL ? { baseURL } : {}),
@@ -216,7 +217,7 @@ export default async (request: Request, context: Context) => {
           },
           { role: "user", content },
         ],
-        max_completion_tokens: 1_600,
+        max_completion_tokens: 4_000,
         response_format: diagnosticResponseFormat,
       });
     } catch (error) {
@@ -347,21 +348,33 @@ export default async (request: Request, context: Context) => {
       mode: "ai-gateway",
     };
 
-    await databaseAuditLogProvider.append({
-      organizationId: principal.organizationId,
-      actorId: principal.userId,
-      action: "diagnostic.ai.turn",
-      resourceType: "troubleshooting-guide",
-      resourceId: groundedResult.recommendedGuideId,
-      outcome: "success",
-      requestId: id,
-      changeSummary: {
-        model,
-        imageProvided: Boolean(input.imageDataUrl),
-        safetyStop: groundedResult.safetyStop,
-        escalate: groundedResult.escalate,
-      },
-    });
+    try {
+      await databaseAuditLogProvider.append({
+        organizationId: principal.organizationId,
+        actorId: principal.userId,
+        action: "diagnostic.ai.turn",
+        resourceType: "troubleshooting-guide",
+        resourceId: groundedResult.recommendedGuideId,
+        outcome: "success",
+        requestId: id,
+        changeSummary: {
+          model,
+          provider,
+          imageProvided: Boolean(input.imageDataUrl),
+          safetyStop: groundedResult.safetyStop,
+          escalate: groundedResult.escalate,
+        },
+      });
+    } catch (auditError) {
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          event: "diagnostic.audit_log_failed",
+          requestId: id,
+          errorType: auditError instanceof Error ? auditError.name : "unknown",
+        }),
+      );
+    }
 
     return json(groundedResult);
   } catch (error) {
