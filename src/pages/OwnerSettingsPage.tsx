@@ -60,7 +60,9 @@ export function OwnerSettingsPage() {
       const { ai } = await api.saveOwnerAiSettings({ apiKey, enabled, model }, csrfToken);
       setSettings(ai);
       setApiKey("");
-      setMessage("OpenAI API key saved. Pocket Technician will use it for every user.");
+      setMessage(
+        "OpenAI API key saved permanently. Pocket Technician will use it for every user on this live site.",
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The API key could not be saved.");
     } finally {
@@ -90,7 +92,7 @@ export function OwnerSettingsPage() {
       <PageHeading
         eyebrow="Owner settings"
         title="AI API settings"
-        description="Save the OpenAI API key Pocket Technician should use for every user in this Resovii workspace."
+        description="Save the OpenAI API key Pocket Technician should use permanently for every user on this live Resovii site."
         action={
           <div className="flex items-center gap-2 rounded-xl border border-teal-300/15 bg-teal-300/[0.05] px-3.5 py-2.5 text-[11px] font-semibold text-teal-200">
             <ShieldCheck size={15} /> Owner controlled
@@ -107,7 +109,8 @@ export function OwnerSettingsPage() {
             <div>
               <h2 className="text-lg font-semibold text-white">OpenAI API key</h2>
               <p className="mt-1 text-sm text-slate-500">
-                The key is encrypted on the server and is never shown back in the browser.
+                The key is encrypted on the server, saved permanently for the site, and is never
+                shown back in the browser.
               </p>
             </div>
           </div>
@@ -142,7 +145,7 @@ export function OwnerSettingsPage() {
               <span>
                 <span className="block font-semibold text-white">Use this key for Pocket Technician</span>
                 <span className="mt-1 block text-xs text-slate-500">
-                  Applies to every user in this workspace.
+                  Applies to every user on the live Resovii site.
                 </span>
               </span>
               {enabled ? <ToggleRight className="text-teal-300" size={30} /> : <ToggleLeft size={30} />}

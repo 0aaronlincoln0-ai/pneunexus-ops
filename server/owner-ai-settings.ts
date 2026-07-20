@@ -3,6 +3,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 
 const storeName = "resovii-owner-ai-settings";
 const defaultModel = "gpt-5.6-sol";
+const siteDefaultSettingsKey = "site/default-ai-settings.json";
 
 interface StoredOwnerAiSettings {
   enabled: boolean;
@@ -34,6 +35,26 @@ function settingsStore() {
 
 function settingsKey(organizationId: string) {
   return `orgs/${organizationId}/ai-settings.json`;
+}
+
+async function readStoredSettings(organizationId: string) {
+  const store = settingsStore();
+  const [organizationSettings, siteSettings] = await Promise.all([
+    store.get(settingsKey(organizationId), { type: "json" }),
+    store.get(siteDefaultSettingsKey, { type: "json" }),
+  ]);
+  return {
+    organizationSettings: (organizationSettings as StoredOwnerAiSettings | null) ?? null,
+    siteSettings: (siteSettings as StoredOwnerAiSettings | null) ?? null,
+  };
+}
+
+async function writePermanentSettings(organizationId: string, settings: StoredOwnerAiSettings) {
+  const store = settingsStore();
+  await Promise.all([
+    store.setJSON(settingsKey(organizationId), settings),
+    store.setJSON(siteDefaultSettingsKey, settings),
+  ]);
 }
 
 function encryptionKey() {
@@ -80,8 +101,8 @@ function statusFromStored(settings: StoredOwnerAiSettings | null): OwnerAiSettin
 export async function getOwnerAiSettingsStatus(
   organizationId: string,
 ): Promise<OwnerAiSettingsStatus> {
-  const settings = await settingsStore().get(settingsKey(organizationId), { type: "json" });
-  return statusFromStored((settings as StoredOwnerAiSettings | null) ?? null);
+  const { organizationSettings, siteSettings } = await readStoredSettings(organizationId);
+  return statusFromStored(organizationSettings ?? siteSettings);
 }
 
 export async function saveOwnerAiSettings(input: {
@@ -102,7 +123,7 @@ export async function saveOwnerAiSettings(input: {
     updatedAt: new Date().toISOString(),
     updatedBy: input.updatedBy,
   };
-  await settingsStore().setJSON(settingsKey(input.organizationId), settings);
+  await writePermanentSettings(input.organizationId, settings);
   return statusFromStored(settings);
 }
 
@@ -111,8 +132,8 @@ export async function setOwnerAiEnabled(input: {
   enabled: boolean;
   updatedBy: string;
 }) {
-  const existing = await settingsStore().get(settingsKey(input.organizationId), { type: "json" });
-  const settings = existing as StoredOwnerAiSettings | null;
+  const { organizationSettings, siteSettings } = await readStoredSettings(input.organizationId);
+  const settings = organizationSettings ?? siteSettings;
   if (!settings) return statusFromStored(null);
   const next = {
     ...settings,
@@ -120,16 +141,15 @@ export async function setOwnerAiEnabled(input: {
     updatedAt: new Date().toISOString(),
     updatedBy: input.updatedBy,
   };
-  await settingsStore().setJSON(settingsKey(input.organizationId), next);
+  await writePermanentSettings(input.organizationId, next);
   return statusFromStored(next);
 }
 
 export async function getOwnerOpenAiRuntimeSettings(
   organizationId: string,
 ): Promise<{ apiKey: string | null; model: string; status: OwnerAiSettingsStatus }> {
-  const settings = (await settingsStore().get(settingsKey(organizationId), {
-    type: "json",
-  })) as StoredOwnerAiSettings | null;
+  const { organizationSettings, siteSettings } = await readStoredSettings(organizationId);
+  const settings = organizationSettings ?? siteSettings;
   const status = statusFromStored(settings);
   if (!settings?.enabled || !settings.encryptedApiKey) {
     return { apiKey: null, model: status.model, status };

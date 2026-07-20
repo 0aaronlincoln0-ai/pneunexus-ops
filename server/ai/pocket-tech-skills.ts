@@ -8,6 +8,9 @@ interface PocketTechSkillInput {
   serviceKnowledgeCount: number;
   safetyStop: boolean;
   escalate: boolean;
+  usedAi?: boolean;
+  provider?: string;
+  model?: string;
 }
 
 export function buildPocketTechSkills({
@@ -17,8 +20,19 @@ export function buildPocketTechSkills({
   serviceKnowledgeCount,
   safetyStop,
   escalate,
+  usedAi = false,
+  provider = "none",
+  model = "reviewed-procedure",
 }: PocketTechSkillInput): PocketTechSkillResult[] {
   return [
+    {
+      id: "live-model-orchestrator",
+      title: "Live model brain",
+      status: usedAi ? "active" : "ready",
+      detail: usedAi
+        ? `Connected through ${provider} using ${model} for this diagnostic turn.`
+        : "Ready to use the owner-saved OpenAI key; reviewed procedure fallback is active until live AI responds.",
+    },
     {
       id: "fault-code-expert",
       title: "Fault code expert",
@@ -32,6 +46,13 @@ export function buildPocketTechSkills({
       detail: imageProvided
         ? "Reviewed the uploaded equipment photo as supporting evidence while keeping the approved procedure in control."
         : "Ready for a station, diverter, blower, carrier, or fault-screen photo.",
+    },
+    {
+      id: "voice-conversation",
+      title: "Natural voice conversation",
+      status: "ready",
+      detail:
+        "Voice mode can listen, speak naturally, and call the reviewed diagnostic tool before giving maintenance instructions.",
     },
     {
       id: "service-history-memory",
@@ -65,6 +86,14 @@ export function buildPocketTechSkills({
       detail: escalate
         ? "Ready to summarize the stop condition and escalation reason for the service ticket."
         : "Building a clean case summary from each observation and approved check.",
+    },
+    {
+      id: "api-activity-monitor",
+      title: "API activity monitor",
+      status: usedAi ? "active" : "ready",
+      detail: usedAi
+        ? "This answer came from the live API and should show activity in the owner OpenAI project."
+        : "This turn did not reach live AI; Pocket Tech used reviewed local procedures instead.",
     },
     {
       id: "safety-gate",

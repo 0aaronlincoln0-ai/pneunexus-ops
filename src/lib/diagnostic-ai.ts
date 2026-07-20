@@ -8,12 +8,15 @@ export interface DiagnosticNextStep {
 
 export interface PocketTechSkillResult {
   id:
+    | "live-model-orchestrator"
     | "fault-code-expert"
     | "equipment-photo-inspector"
+    | "voice-conversation"
     | "service-history-memory"
     | "parts-tools-helper"
     | "return-to-service-verifier"
     | "technician-report-writer"
+    | "api-activity-monitor"
     | "safety-gate";
   title: string;
   status: "active" | "ready" | "blocked";

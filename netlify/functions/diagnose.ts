@@ -134,6 +134,7 @@ function localGuidedResponse(
       serviceKnowledgeCount: 0,
       safetyStop,
       escalate: !step,
+      model,
     }),
     apiTrace: {
       route: "/api/diagnose",
@@ -174,6 +175,12 @@ function clarificationResponse(
     serviceKnowledge: [],
     skills: [
       {
+        id: "live-model-orchestrator",
+        title: "Live model brain",
+        status: "ready",
+        detail: "Waiting for enough field detail before calling the owner-saved OpenAI model.",
+      },
+      {
         id: "fault-code-expert",
         title: "Fault code expert",
         status: "ready",
@@ -186,6 +193,18 @@ function clarificationResponse(
         detail: input.imageDataUrl
           ? "Photo was attached, but a clear symptom is still needed."
           : "Ready for a photo of the equipment or local status screen.",
+      },
+      {
+        id: "voice-conversation",
+        title: "Natural voice conversation",
+        status: "ready",
+        detail: "Ready to continue by text, photo, or live voice after the symptom is clear.",
+      },
+      {
+        id: "api-activity-monitor",
+        title: "API activity monitor",
+        status: "ready",
+        detail: "This turn asked for clarification before spending a live API call.",
       },
       {
         id: "safety-gate",
@@ -443,6 +462,9 @@ export default async (request: Request, context: Context) => {
         serviceKnowledgeCount: serviceMatches.length,
         safetyStop,
         escalate: invalidStepSelection || result.escalate,
+        usedAi: true,
+        provider,
+        model,
       }),
       apiTrace: {
         route: "/api/diagnose",
