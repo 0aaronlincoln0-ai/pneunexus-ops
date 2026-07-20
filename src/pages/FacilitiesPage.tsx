@@ -89,7 +89,7 @@ export function FacilitiesPage() {
               <div className="p-12 text-center">
                 <p className="text-sm font-semibold text-slate-200">No site locations saved yet</p>
                 <p className="mt-2 text-sm text-slate-500">
-                  Add locations and system notes as they become available.
+                  Import the hospital device configuration to create locations, systems, and zones.
                 </p>
               </div>
             )}

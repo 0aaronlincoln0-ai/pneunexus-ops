@@ -146,7 +146,7 @@ export function AssetsPage() {
             </p>
             <p className="mt-1 text-sm text-slate-500">
               {devices.length === 0
-                ? "Register the first device when you are ready."
+                ? "Import the hospital device configuration to build this workspace, or register a device manually."
                 : "Adjust the search term or status filter."}
             </p>
           </div>

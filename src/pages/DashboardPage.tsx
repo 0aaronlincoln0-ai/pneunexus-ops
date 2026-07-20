@@ -61,6 +61,7 @@ export function DashboardPage() {
   if (!query.data) return <PageError retry={() => void query.refetch()} />;
 
   const { metrics, workOrders, incidents } = query.data;
+  const hasImportedEquipment = query.data.devices.length > 0;
   const activeWork = workOrders.filter((workOrder) => workOrder.status !== "completed");
   const activeIncidents = incidents.filter((incident) => incident.status !== "resolved");
 
@@ -68,9 +69,33 @@ export function DashboardPage() {
     <>
       <PageHeading
         eyebrow="Technician workboard"
-        title="What do you need to do?"
-        description="Choose the task in front of you. The app will keep the procedure, evidence, and closeout information together as you work."
+        title={hasImportedEquipment ? "What do you need to do?" : "Start with your equipment"}
+        description={
+          hasImportedEquipment
+            ? "Choose the task in front of you. The app will keep the procedure, evidence, and closeout information together as you work."
+            : "This workspace is blank. Import the hospital device configuration to create the equipment, locations, and PM context used throughout Resovii."
+        }
       />
+
+      {!hasImportedEquipment && (
+        <Link
+          to="/assets"
+          className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-teal-300/20 bg-teal-300/[0.055] p-5 transition hover:border-teal-300/35 hover:bg-teal-300/[0.085]"
+        >
+          <div className="flex items-center gap-4">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-teal-300/15 bg-[#071916] text-teal-300">
+              <PackageSearch size={20} />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-white">Import hospital device configuration</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Load a supported configuration to populate your equipment records and PM selector.
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="shrink-0 text-teal-300" size={18} />
+        </Link>
+      )}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" aria-label="Choose a task">
         {coreActions.map(({ to, icon: Icon, step, title, detail, emphasis }) => (

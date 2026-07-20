@@ -1,6 +1,6 @@
 import type { BootstrapData, SessionUser } from "../types";
 import type { DiagnosticTurnInput, DiagnosticTurnResponse } from "./diagnostic-ai";
-import { localAdminUser, localDemoData } from "./local-demo";
+import { emptyWorkspaceData, localAdminUser } from "./local-demo";
 import { loadLocalWorkspace } from "./local-workspace";
 import { findServiceKnowledge } from "./service-history";
 import { rankTroubleshootingGuides, troubleshootingGuides } from "./troubleshooting";
@@ -79,10 +79,10 @@ export async function logout(csrfToken: string): Promise<void> {
 
 export async function getBootstrap(): Promise<BootstrapData> {
   if (localAdminEnabled) {
-    return loadLocalWorkspace() ?? localDemoData;
+    return loadLocalWorkspace() ?? emptyWorkspaceData;
   }
   const response = await fetch("/api/bootstrap", { credentials: "include", cache: "no-store" });
-  if (response.status === 401) return localDemoData;
+  if (response.status === 401) return emptyWorkspaceData;
   return parse(response);
 }
 

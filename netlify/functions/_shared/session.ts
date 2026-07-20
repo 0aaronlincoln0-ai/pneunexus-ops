@@ -3,6 +3,7 @@ import { getDatabase } from "../../../server/db/client";
 import {
   facilityAssignments,
   memberships,
+  organizations,
   permissions,
   rolePermissions,
   roles,
@@ -74,6 +75,7 @@ export async function authenticateRequest(
       ),
     )
     .innerJoin(roles, eq(memberships.roleId, roles.id))
+    .innerJoin(organizations, eq(sessions.organizationId, organizations.id))
     .where(
       and(
         eq(sessions.tokenHash, tokenHash),
@@ -82,6 +84,7 @@ export async function authenticateRequest(
         gt(sessions.absoluteExpiresAt, now),
         eq(users.status, "active"),
         eq(memberships.status, "active"),
+        eq(organizations.isDemo, false),
       ),
     )
     .limit(1);

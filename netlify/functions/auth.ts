@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getDatabase } from "../../server/db/client";
 import {
   memberships,
+  organizations,
   organizationSettings,
   permissions,
   rolePermissions,
@@ -32,8 +33,7 @@ const loginSchema = z.object({
 async function login(request: Request, context: Context): Promise<Response> {
   const id = requestId(context);
   const { email, password } = loginSchema.parse(await request.json());
-  const normalizedEmail =
-    email.toLowerCase() === "admin" ? "organization.admin@greatlakes.demo" : email.toLowerCase();
+  const normalizedEmail = email.toLowerCase();
   const rateLimitKey = `login:${context.ip ?? "unknown"}`;
   enforceRateLimit(rateLimitKey);
   const db = getDatabase();
@@ -42,11 +42,13 @@ async function login(request: Request, context: Context): Promise<Response> {
     .from(users)
     .innerJoin(memberships, eq(memberships.userId, users.id))
     .innerJoin(roles, eq(memberships.roleId, roles.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
     .where(
       and(
         eq(users.email, normalizedEmail),
         eq(users.status, "active"),
         eq(memberships.status, "active"),
+        eq(organizations.isDemo, false),
       ),
     )
     .limit(1);
