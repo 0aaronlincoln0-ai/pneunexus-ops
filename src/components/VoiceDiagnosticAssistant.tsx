@@ -1,6 +1,5 @@
 import {
   AlertTriangle,
-  AudioLines,
   Bot,
   Camera,
   Check,
@@ -34,11 +33,15 @@ import { Card } from "./ui/card";
 
 interface VoiceDiagnosticAssistantProps {
   deviceContext?: string;
+  deviceLabel?: string;
 }
 
 type AssistantPhase = "ready" | "listening" | "thinking" | "speaking";
 
-export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssistantProps) {
+export function VoiceDiagnosticAssistant({
+  deviceContext,
+  deviceLabel,
+}: VoiceDiagnosticAssistantProps) {
   const { csrfToken } = useAuth();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<DiagnosticConversationMessage[]>([]);
@@ -59,6 +62,11 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
 
   const busy = phase === "thinking";
   const started = messages.length > 0 || result !== null;
+  const guidanceSource = result
+    ? result.mode === "ai-gateway"
+      ? "Live AI guidance"
+      : "Reviewed procedure"
+    : "Ready";
 
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -251,26 +259,26 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
 
   return (
     <Card className="voice-assist-shell mb-7 overflow-hidden" data-phase={phase}>
-      <div className="border-b border-white/[0.07] px-5 py-5 sm:px-7 sm:py-6">
+      <div className="border-b border-white/[0.07] bg-black/10 px-5 py-5 sm:px-7 sm:py-6">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
             <AssistantOrb phase={phase} />
             <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="text-xl font-semibold tracking-[-0.03em] text-white">
-                  Pocket Technician
-                </h2>
-                <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-300">
-                  Ready to help
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-teal-300/75">
+                Active diagnostic session
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-2.5">
+                <h2 className="text-xl font-semibold text-white">Pocket Technician</h2>
+                <span className="rounded-full border border-teal-300/20 bg-teal-300/[0.07] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-teal-100">
+                  {guidanceSource}
                 </span>
               </div>
-              <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-400">
-                Tell us what you see. We will walk through one safe check at a time and wait for
-                your answer.
+              <p className="mt-1.5 text-sm text-slate-500">
+                {deviceLabel ?? "No equipment selected"}
               </p>
             </div>
           </div>
-          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+          <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
             <button
               type="button"
               aria-pressed={autoSpeak}
@@ -278,42 +286,23 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
                 setAutoSpeak((value) => !value);
                 if (autoSpeak) window.speechSynthesis?.cancel();
               }}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-sm font-semibold text-slate-300 transition hover:border-white/[0.16] hover:bg-white/[0.05] sm:px-3.5"
+              className="grid h-11 w-11 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.025] text-slate-300 transition hover:border-white/[0.16] hover:bg-white/[0.05]"
+              title={autoSpeak ? "Turn spoken guidance off" : "Turn spoken guidance on"}
             >
               {autoSpeak ? <Volume2 size={18} /> : <VolumeX size={18} />}
-              Read aloud {autoSpeak ? "on" : "off"}
             </button>
             {started && (
               <button
                 type="button"
                 onClick={startNewConversation}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-400 transition hover:bg-white/[0.05] hover:text-white sm:px-3.5"
+                className="grid h-11 w-11 place-items-center rounded-lg text-slate-400 transition hover:bg-white/[0.05] hover:text-white"
+                title="Start a new diagnostic conversation"
+                aria-label="Start a new diagnostic conversation"
               >
-                <MessageSquarePlus size={17} /> New conversation
+                <MessageSquarePlus size={18} />
               </button>
             )}
           </div>
-        </div>
-
-        <div className="mt-6 grid gap-2 sm:grid-cols-3" aria-label="How Pocket Technician works">
-          <HowItWorksStep
-            number="1"
-            icon={AudioLines}
-            label="Describe the problem"
-            active={!started}
-          />
-          <HowItWorksStep
-            number="2"
-            icon={ShieldCheck}
-            label="Follow one safe check"
-            active={started}
-          />
-          <HowItWorksStep
-            number="3"
-            icon={Check}
-            label="Report what happened"
-            active={Boolean(result)}
-          />
         </div>
       </div>
 
@@ -333,11 +322,7 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
                 />
                 <p className="text-sm font-semibold text-slate-200">{phaseLabel(phase)}</p>
               </div>
-              <p className="hidden text-xs text-slate-600 sm:block">
-                {guideId
-                  ? "A reviewed procedure is matched to this case"
-                  : "Procedure match begins with your report"}
-              </p>
+              <p className="hidden text-xs text-slate-600 sm:block">{guidanceSource}</p>
             </div>
 
             <div
@@ -506,9 +491,9 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.17em] text-teal-300/70">
-                Diagnostic history
+              Case history
               </p>
-              <p className="mt-1 text-sm text-slate-500">Resume a recent field conversation</p>
+              <p className="mt-1 text-sm text-slate-500">Resume a prior diagnostic case</p>
             </div>
           </div>
 
@@ -523,9 +508,9 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.17em] text-teal-300/70">
-                Your next step
+              Current instruction
               </p>
-              <p className="mt-1 text-sm text-slate-500">Only one action at a time</p>
+              <p className="mt-1 text-sm text-slate-500">One approved action at a time</p>
             </div>
             {result && (
               <button
@@ -575,35 +560,6 @@ function AssistantOrb({ phase }: { phase: AssistantPhase }) {
           <Bot size={23} />
         )}
       </div>
-    </div>
-  );
-}
-
-function HowItWorksStep({
-  number,
-  icon: Icon,
-  label,
-  active,
-}: {
-  number: string;
-  icon: typeof AudioLines;
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-h-12 items-center gap-3 rounded-xl border px-3.5 transition",
-        active
-          ? "border-teal-300/20 bg-teal-300/[0.055] text-slate-200"
-          : "border-white/[0.055] bg-white/[0.015] text-slate-500",
-      )}
-    >
-      <span className="grid h-7 w-7 place-items-center rounded-lg bg-black/20 text-xs font-bold text-teal-300">
-        {number}
-      </span>
-      <Icon size={16} />
-      <span className="text-xs font-semibold">{label}</span>
     </div>
   );
 }

@@ -103,6 +103,7 @@ function localGuidedResponse(input: z.infer<typeof inputSchema>): DiagnosticTurn
 
 export default async (request: Request, context: Context) => {
   const id = requestId(context);
+  let parsedInput: z.infer<typeof inputSchema> | undefined;
   try {
     if (request.method !== "POST")
       return json({ error: "Method not allowed", requestId: id }, { status: 405 });
@@ -116,6 +117,7 @@ export default async (request: Request, context: Context) => {
     );
 
     const input = inputSchema.parse(await request.json());
+    parsedInput = input;
     const warnings = [
       ...detectProhibitedContent(input.message),
       ...input.conversation.flatMap(({ text }) => detectProhibitedContent(text)),
@@ -299,6 +301,18 @@ export default async (request: Request, context: Context) => {
 
     return json(groundedResult);
   } catch (error) {
+    if (parsedInput && !(error instanceof HttpError)) {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "diagnostic.fallback",
+          requestId: id,
+          errorType: error instanceof Error ? error.name : "unknown",
+          errorMessage: error instanceof Error ? error.message : "unknown",
+        }),
+      );
+      return json(localGuidedResponse(parsedInput));
+    }
     return errorResponse(error, id);
   }
 };

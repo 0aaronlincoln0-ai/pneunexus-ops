@@ -3,7 +3,6 @@ import { BookOpen, ChevronRight, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import { PageHeading } from "../components/QueryState";
 import { VoiceDiagnosticAssistant } from "../components/VoiceDiagnosticAssistant";
-import { Card } from "../components/ui/card";
 import { useBootstrap } from "../hooks/useBootstrap";
 
 export function TroubleshootingPage() {
@@ -33,21 +32,13 @@ export function TroubleshootingPage() {
       />
 
       {devices.length > 0 && (
-        <Card className="mb-6 flex flex-col gap-4 p-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-lg border border-teal-300/15 bg-teal-300/[0.06] text-teal-300">
+        <section className="mb-6 flex flex-col gap-3 border-y border-white/[0.08] py-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 items-end gap-3">
+            <span className="mb-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-teal-300/15 bg-teal-300/[0.06] text-teal-300">
               <Stethoscope size={18} />
             </span>
-            <div>
-              <p className="text-sm font-semibold text-slate-200">Equipment context is available</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                Choose a saved record only when it applies to this diagnostic conversation.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <label className="block w-full sm:max-w-md">
-              <span className="text-xs font-semibold text-slate-300">Affected equipment</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Affected equipment</span>
               <select
                 value={deviceId}
                 onChange={(event) => setDeviceId(event.target.value)}
@@ -61,17 +52,22 @@ export function TroubleshootingPage() {
                 ))}
               </select>
             </label>
-            <Link
-              to="/assets"
-              className="inline-flex min-h-10 items-center text-xs font-semibold text-teal-200 hover:text-teal-100"
-            >
-              Review equipment records <ChevronRight size={15} />
-            </Link>
           </div>
-        </Card>
+          <Link
+            to="/assets"
+            className="inline-flex min-h-10 items-center text-xs font-semibold text-teal-200 hover:text-teal-100"
+          >
+            Review equipment records <ChevronRight size={15} />
+          </Link>
+        </section>
       )}
 
-      <VoiceDiagnosticAssistant {...(deviceContext ? { deviceContext } : {})} />
+      <VoiceDiagnosticAssistant
+        {...(deviceContext ? { deviceContext } : {})}
+        {...(selectedDevice
+          ? { deviceLabel: `${selectedDevice.assetTag} - ${selectedDevice.type}` }
+          : {})}
+      />
     </>
   );
 }
