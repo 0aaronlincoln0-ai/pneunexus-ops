@@ -38,7 +38,7 @@ const AdminServicePage = lazy(() =>
 function RootComponent() {
   const { loading, user } = useAuth();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  if (loading)
+  if (loading && pathname === "/admin")
     return (
       <div className="p-10">
         <PageSkeleton />
