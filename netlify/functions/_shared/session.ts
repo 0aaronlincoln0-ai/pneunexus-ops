@@ -11,6 +11,7 @@ import {
   users,
 } from "../../../server/db/schema";
 import type { AuthenticatedPrincipal } from "../../../server/providers/contracts";
+import { canAccessWorkspace } from "../../../server/billing/organization-access";
 import { HttpError } from "./http";
 
 export const SESSION_COOKIE = "pnx_session";
@@ -43,11 +44,13 @@ export interface SessionContext {
   principal: AuthenticatedPrincipal;
   displayName: string;
   email: string;
+  subscriptionStatus: string;
 }
 
 export async function authenticateRequest(
   request: Request,
   requireCsrf = false,
+  requireWorkspaceAccess = false,
 ): Promise<SessionContext> {
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) throw new HttpError(401, "Authentication required");
@@ -64,6 +67,7 @@ export async function authenticateRequest(
       email: users.email,
       membershipId: memberships.id,
       roleKey: roles.key,
+      subscriptionStatus: organizations.subscriptionStatus,
     })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
@@ -89,6 +93,12 @@ export async function authenticateRequest(
     )
     .limit(1);
   if (!row) throw new HttpError(401, "Authentication required");
+  if (
+    requireWorkspaceAccess &&
+    row.roleKey !== "platform_super_admin" &&
+    !canAccessWorkspace(row.subscriptionStatus)
+  )
+    throw new HttpError(403, "This workspace is awaiting Resovii activation");
 
   if (requireCsrf) {
     const supplied = request.headers.get("x-csrf-token");
@@ -123,6 +133,7 @@ export async function authenticateRequest(
     csrfTokenHash: row.csrfTokenHash,
     displayName: row.displayName,
     email: row.email,
+    subscriptionStatus: row.subscriptionStatus,
     principal: {
       userId: row.userId,
       organizationId: row.organizationId,

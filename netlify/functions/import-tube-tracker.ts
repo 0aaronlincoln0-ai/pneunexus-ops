@@ -27,7 +27,7 @@ export default async (request: Request, context: Context) => {
   try {
     if (request.method !== "POST")
       return json({ error: "Method not allowed", requestId: id }, { status: 405 });
-    const { principal } = await authenticateRequest(request, true);
+    const { principal } = await authenticateRequest(request, true, true);
     requireCapability(principal.permissions, capabilities.deviceWrite);
     if (!principal.facilityIds.has("*"))
       throw new HttpError(

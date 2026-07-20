@@ -4,6 +4,8 @@ export interface SessionUser {
   email: string;
   role: string;
   permissions: string[];
+  workspaceAccess?: boolean;
+  subscriptionStatus?: string;
 }
 export interface FacilityRow {
   networkId: string;

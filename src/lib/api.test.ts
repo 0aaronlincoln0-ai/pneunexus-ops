@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getBootstrap, getSession, login, logout } from "./api";
+import { getBootstrap, getSession, login, logout, registerAccount } from "./api";
 
 describe("local development administrator", () => {
   beforeEach(() => localStorage.clear());
@@ -17,5 +17,17 @@ describe("local development administrator", () => {
     expect(workspace.demo).toBe(false);
     await logout("local-development");
     expect(await getSession()).toBeNull();
+  });
+
+  it("creates a local workspace session from account setup", async () => {
+    const session = await registerAccount({
+      organizationName: "Field Engineering",
+      displayName: "Avery Technician",
+      email: "avery@example.com",
+      password: "safe-password-123",
+      plan: "lifetime",
+    });
+    expect(session.user.role).toBe("organization_admin");
+    expect((await getBootstrap()).devices).toEqual([]);
   });
 });

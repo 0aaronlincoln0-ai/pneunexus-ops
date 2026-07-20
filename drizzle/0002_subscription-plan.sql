@@ -1,0 +1,1 @@
+ALTER TABLE "organization_settings" ADD COLUMN "subscription_plan" text DEFAULT 'individual' NOT NULL;

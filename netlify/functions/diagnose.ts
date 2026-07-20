@@ -67,7 +67,7 @@ export default async (request: Request, context: Context) => {
     if (request.method !== "POST")
       return json({ error: "Method not allowed", requestId: id }, { status: 405 });
 
-    const { principal } = await authenticateRequest(request, true);
+    const { principal } = await authenticateRequest(request, true, true);
     requireCapability(principal.permissions, capabilities.dashboardRead);
     enforceRateLimit(
       `ai-diagnose:${principal.organizationId}:${principal.userId}`,

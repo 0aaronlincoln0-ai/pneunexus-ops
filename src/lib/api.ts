@@ -9,6 +9,16 @@ const localAdminEnabled = import.meta.env.DEV && import.meta.env.VITE_LOCAL_ADMI
 const localSessionKey = "resovii-local-admin";
 const legacyLocalSessionKey = "pneunexus-local-admin";
 
+export type SubscriptionPlan = "individual" | "team" | "lifetime";
+
+export interface RegisterAccountInput {
+  organizationName: string;
+  displayName: string;
+  email: string;
+  password: string;
+  plan: SubscriptionPlan;
+}
+
 function hasLocalSession() {
   return (
     localStorage.getItem(localSessionKey) === "authenticated" ||
@@ -58,6 +68,23 @@ export async function login(
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
+    }),
+  );
+}
+
+export async function registerAccount(
+  input: RegisterAccountInput,
+): Promise<{ user: SessionUser; csrfToken: string }> {
+  if (localAdminEnabled) {
+    localStorage.setItem(localSessionKey, "authenticated");
+    return { user: localAdminUser, csrfToken: "local-development" };
+  }
+  return parse(
+    await fetch("/api/auth/register", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
     }),
   );
 }

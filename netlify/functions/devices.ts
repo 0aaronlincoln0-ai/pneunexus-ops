@@ -22,7 +22,7 @@ export default async (request: Request, context: Context) => {
   try {
     if (request.method !== "POST")
       return json({ error: "Method not allowed", requestId: id }, { status: 405 });
-    const { principal } = await authenticateRequest(request, true);
+    const { principal } = await authenticateRequest(request, true, true);
     requireCapability(principal.permissions, capabilities.deviceWrite);
     const input = createDeviceSchema.parse(await request.json());
     assertFacilityAccess(principal, input.campusId);

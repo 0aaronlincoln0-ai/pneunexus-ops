@@ -23,7 +23,7 @@ export default async (request: Request, context: Context) => {
   try {
     if (request.method !== "GET")
       return json({ error: "Method not allowed", requestId: id }, { status: 405 });
-    const { principal } = await authenticateRequest(request);
+    const { principal } = await authenticateRequest(request, false, true);
     requireCapability(principal.permissions, capabilities.dashboardRead);
     const db = getDatabase();
     const org = principal.organizationId;

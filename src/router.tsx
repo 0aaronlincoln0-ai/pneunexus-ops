@@ -1,9 +1,9 @@
-import { createRootRoute, createRoute, createRouter, useRouterState } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { lazy } from "react";
 import { useAuth } from "./auth";
 import { AppShell } from "./components/AppShell";
-import { LoginScreen } from "./components/LoginScreen";
-import { PageSkeleton } from "./components/QueryState";
+import { ActivationPendingScreen } from "./components/ActivationPendingScreen";
+import { WelcomeScreen } from "./components/WelcomeScreen";
 
 const DashboardPage = lazy(() =>
   import("./pages/DashboardPage").then((module) => ({ default: module.DashboardPage })),
@@ -37,14 +37,9 @@ const AdminServicePage = lazy(() =>
 
 function RootComponent() {
   const { loading, user } = useAuth();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  if (loading && pathname === "/admin")
-    return (
-      <div className="p-10">
-        <PageSkeleton />
-      </div>
-    );
-  return user || pathname !== "/admin" ? <AppShell /> : <LoginScreen />;
+  if (loading || !user) return <WelcomeScreen />;
+  if (!user.workspaceAccess) return <ActivationPendingScreen />;
+  return <AppShell />;
 }
 const rootRoute = createRootRoute({
   component: RootComponent,

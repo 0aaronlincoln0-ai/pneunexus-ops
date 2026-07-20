@@ -15,6 +15,20 @@
       "when": 1784144026070,
       "tag": "0001_tenant_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784520882661,
+      "tag": "0002_subscription-plan",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784522648869,
+      "tag": "0003_ambitious_jackal",
+      "breakpoints": true
     }
   ]
 }

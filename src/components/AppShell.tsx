@@ -18,7 +18,7 @@ import {
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth";
 import { cn, titleCase } from "../lib/utils";
-import { LogoMark } from "./LoginScreen";
+import { BrandMark } from "./BrandMark";
 import { Button } from "./ui/button";
 
 const navigation = [
@@ -30,6 +30,10 @@ const navigation = [
   { to: "/facilities", label: "Site notes", icon: Building2 },
   { to: "/admin", label: "Administrator", icon: ClipboardList },
 ] as const;
+
+function isAdministrator(role: string | undefined) {
+  return ["organization_admin", "network_admin", "platform_super_admin"].includes(role ?? "");
+}
 
 export function AppShell() {
   const { user, logout } = useAuth();
@@ -53,14 +57,17 @@ export function AppShell() {
     return () => removeEventListener("keydown", listener);
   }, []);
 
-  const current = navigation.find((item) => item.to === pathname)?.label ?? "Overview";
+  const availableNavigation = navigation.filter(
+    (item) => item.to !== "/admin" || isAdministrator(user?.role),
+  );
+  const current = availableNavigation.find((item) => item.to === pathname)?.label ?? "Overview";
 
   return (
     <div className="app-canvas min-h-[100dvh] text-slate-100">
       <header className="app-topbar sticky top-0 z-30 border-b border-white/[0.07] bg-[#070b11]/94 text-white backdrop-blur-xl">
         <div className="mx-auto flex min-h-[4.5rem] max-w-[1800px] items-center gap-3 px-3 sm:px-6 lg:px-8 2xl:px-10">
           <Link to="/" className="flex shrink-0 items-center gap-3" aria-label="Resovii overview">
-            <LogoMark />
+            <BrandMark />
             <div className="hidden sm:block">
               <p className="text-[15px] font-semibold">Resovii</p>
               <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[.18em] text-slate-600">
@@ -70,7 +77,7 @@ export function AppShell() {
           </Link>
 
           <nav className="app-primary-tabs min-w-0 flex-1" aria-label="Primary navigation">
-            {navigation.map(({ to, label, icon: Icon }) => (
+            {availableNavigation.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}
@@ -179,7 +186,7 @@ export function AppShell() {
               </button>
             </div>
             <div className="p-2">
-              {navigation.map(({ to, label, icon: Icon }) => (
+              {availableNavigation.map(({ to, label, icon: Icon }) => (
                 <Link
                   key={to}
                   to={to}

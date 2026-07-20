@@ -5,6 +5,8 @@ export const localAdminUser: SessionUser = {
   displayName: "Local Administrator",
   email: "admin",
   role: "organization_admin",
+  workspaceAccess: true,
+  subscriptionStatus: "active",
   permissions: [
     "dashboard:read",
     "facility:read",
