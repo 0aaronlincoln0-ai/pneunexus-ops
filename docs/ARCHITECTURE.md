@@ -1,6 +1,6 @@
 # Architecture overview
 
-PneuNexus Ops is a Vite/React SPA with TanStack Router/Query. Netlify Functions form the trusted API boundary. Business services depend on provider contracts for authentication, PostgreSQL/Drizzle access, file storage, email, append-only auditing, and monitoring.
+Resovii is a Vite/React SPA with TanStack Router/Query. Netlify Functions form the trusted API boundary. Business services depend on provider contracts for authentication, PostgreSQL/Drizzle access, file storage, email, append-only auditing, and monitoring.
 
 ```mermaid
 flowchart LR

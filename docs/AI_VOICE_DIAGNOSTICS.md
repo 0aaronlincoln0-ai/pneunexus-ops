@@ -15,13 +15,18 @@ Voice Assist is a phone-first, multimodal troubleshooting layer. A technician ca
 1. The browser captures a short speech transcript or typed message and optionally compresses one equipment photo.
 2. The authenticated `/api/diagnose` Netlify Function validates CSRF, capability, request size, rate limit, and likely prohibited content.
 3. Deterministic retrieval selects the closest approved protocol excerpts.
-4. Netlify AI Gateway proxies a structured OpenAI Responses API request.
+4. The server submits a structured OpenAI chat-completion request through either a private application OpenAI credential or Netlify AI Gateway.
 5. The server validates the strict JSON response before returning it.
 6. The phone displays the single next check and uses device speech synthesis to read it aloud.
 
 ## Deployment
 
-AI Gateway requires a Netlify production deployment before it is available. Set `AI_DIAGNOSTIC_MODEL` to an AI Gateway-supported vision model; the default is `gpt-5-mini`. Netlify supplies `OPENAI_API_KEY` and `OPENAI_BASE_URL` to the function. Do not create public equivalents.
+Resovii owns one AI provider setup for all customer users. Customers never enter, see, or manage an API key.
+
+- **Private OpenAI credential:** set `OPENAI_API_KEY` in Netlify's protected function environment. The server uses it directly with the `AI_DIAGNOSTIC_MODEL` value (default: `gpt-4o-mini`).
+- **Netlify AI Gateway:** enable AI for the deployed site. Netlify injects `OPENAI_BASE_URL`; no provider key is needed for this path.
+
+Use only one provider option for a deployment. Never create a `VITE_OPENAI_API_KEY`, include a key in a source file, or put it in a customer-facing setting. Rotate a key immediately if it is exposed outside the protected deployment environment.
 
 The normal Vite development server uses a deterministic local preview. It exercises the voice, photo, conversation, and protocol-step interface without pretending that cloud photo interpretation is active. Use `netlify dev` after the site has a production deploy to test the real gateway locally.
 
@@ -29,6 +34,6 @@ The normal Vite development server uses a deterministic local preview. It exerci
 
 - Current application rate limit: 24 diagnostic turns per technician per 15 minutes, in addition to Netlify/account limits.
 - Maximum text report: 1,200 characters; conversation: eight turns; image data URL: 1.8 MB.
-- Model timeout: 20 seconds with one retry.
+- Model timeout: 25 seconds with one retry.
 - On ambiguity or hazardous work, the output schema supports a mandatory safety stop and escalation reason.
 - Before hospital production use, validate model behavior against a reviewed fault-case set, obtain privacy/security approval, configure monitoring and cost alerts, and test the exact target phones and browsers.

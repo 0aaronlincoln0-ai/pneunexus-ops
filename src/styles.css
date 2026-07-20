@@ -63,12 +63,22 @@ select,
 textarea {
   font: inherit;
 }
-.app-sidebar {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-.app-sidebar-header {
-  min-height: calc(6rem + env(safe-area-inset-top));
+.app-topbar {
   padding-top: env(safe-area-inset-top);
+}
+.app-primary-tabs {
+  display: flex;
+  align-self: stretch;
+  align-items: stretch;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.app-primary-tabs::-webkit-scrollbar {
+  display: none;
+}
+.app-primary-tab {
+  white-space: nowrap;
 }
 .app-header {
   min-height: calc(5rem + env(safe-area-inset-top));
@@ -472,6 +482,31 @@ textarea {
 }
 
 @media (max-width: 639px) {
+  .app-main {
+    padding-right: 0.75rem;
+    padding-left: 0.75rem;
+  }
+
+  .app-primary-tabs {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    min-height: 3.1rem;
+    padding: 0 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(7, 11, 17, 0.98);
+  }
+
+  .app-primary-tab {
+    min-height: 3rem;
+    padding: 0 0.75rem;
+  }
+
+  .app-main {
+    padding-top: 4rem;
+  }
+
   input,
   select,
   textarea {
@@ -496,6 +531,13 @@ textarea {
   .voice-orb-core {
     width: 2.75rem;
     height: 2.75rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1279px) {
+  .app-main {
+    padding-right: 1.25rem;
+    padding-left: 1.25rem;
   }
 }
 

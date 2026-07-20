@@ -24,8 +24,8 @@ export interface MaintenanceTemplate {
 }
 
 const universalSafety = [
-  "Coordinate the outage and affected routes with hospital operations before starting.",
-  "Use the current equipment-revision manual and the hospital's lockout/tagout procedure.",
+  "Coordinate the outage and affected routes with site operations before starting.",
+  "Use the current equipment-revision manual and the site's lockout/tagout procedure.",
   "Do not work around moving equipment, exposed wiring, stored mechanical energy, or an unknown carrier.",
   "Record infrastructure findings only; do not enter patient, specimen, medication, or medical-record information.",
 ];
@@ -38,7 +38,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
     purpose:
       "Inspect the endpoint mechanism, sensors, carrier handling surfaces, and recorded carrier inventory.",
     interval:
-      "Pevco recommends service twice each year, with shorter intervals for heavily used equipment.",
+      "Set the service interval from the equipment-revision manual and local operating conditions.",
     safety: [
       ...universalSafety,
       "Keep hands clear of the dispatch arm, slide plate, carrier gate, brake, and all pinch points.",
@@ -64,7 +64,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
       {
         title: "Clean receive bin, control panel, and dispatch arm",
         instruction:
-          "Remove loose debris and residue using hospital-approved materials. Clean the carrier contact surfaces without flooding electronics or using a lubricant or chemical not listed for the equipment.",
+          "Remove loose debris and residue using site-approved materials. Clean the carrier contact surfaces without flooding electronics or using a lubricant or chemical not listed for the equipment.",
         passCriteria:
           "The receive area and dispatch surfaces are clean, dry, unobstructed, and free of sharp damage.",
         ifFailed:
@@ -109,7 +109,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
       },
     ],
     verification: [
-      "Remove tools, reinstall guards and covers, and clear the lockout under hospital procedure.",
+      "Remove tools, reinstall guards and covers, and clear the lockout under the site procedure.",
       "Confirm stable sensor and position indications with the station empty.",
       "Run at least two approved empty-carrier functional tests and confirm controlled dispatch and arrival.",
       "Record replaced parts, adjustments, unresolved findings, and the next PM date.",
@@ -120,7 +120,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
       "Electrical testing, controller repair, or an undocumented adjustment is required.",
       "The station cannot pass repeat empty-carrier tests.",
     ],
-    source: "Pevco Planned Maintenance brochure: Stations",
+    source: "Equipment PM procedure: Station",
   },
   {
     id: "diverter",
@@ -129,7 +129,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
     purpose:
       "Inspect the route-switching mechanism, indexed port alignment, seals, sensing, brake, and drive condition.",
     interval:
-      "Pevco recommends service twice each year, with shorter intervals for heavily used equipment.",
+      "Set the service interval from the equipment-revision manual and local operating conditions.",
     safety: [
       ...universalSafety,
       "Rule out a carrier in the diverter and apply lockout/tagout before touching the tray, face plate, chain, brake, or transition tube.",
@@ -201,7 +201,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
       },
     ],
     verification: [
-      "Remove tools, reinstall guards and covers, and clear lockout under hospital procedure.",
+      "Remove tools, reinstall guards and covers, and clear lockout under the site procedure.",
       "Verify each port reports one stable indexed position.",
       "Run approved empty-carrier tests through every affected route.",
       "Record seal, sensor, chain, brake, alignment, and part-replacement findings.",
@@ -212,7 +212,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
       "The brake, chain, motor, actuator, or transition tube requires repair.",
       "A controlled empty-carrier test fails or produces an abnormal sighting.",
     ],
-    source: "Pevco Planned Maintenance brochure: Diverters",
+    source: "Equipment PM procedure: Diverter",
   },
   {
     id: "blower",
@@ -221,7 +221,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
     purpose:
       "Inspect the blower package, air shifter, airflow sensing, seals, brake, indexed ports, and supporting hardware.",
     interval:
-      "Pevco recommends service twice each year, with shorter intervals for heavily used equipment.",
+      "Set the service interval from the equipment-revision manual and local operating conditions.",
     safety: [
       ...universalSafety,
       "Blower packages may contain 208/480 VAC three-phase power; energized testing and electrical access are restricted to qualified personnel.",
@@ -295,7 +295,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
       },
     ],
     verification: [
-      "Remove tools, reinstall guards and covers, and clear lockout under hospital procedure.",
+      "Remove tools, reinstall guards and covers, and clear lockout under the site procedure.",
       "Confirm stable idle, vacuum, and pressure position feedback.",
       "Run approved empty-carrier tests from representative endpoints and compare travel behavior.",
       "Record airflow, seal, sensor, brake, alignment, electrical, and replacement-part findings.",
@@ -306,7 +306,7 @@ export const maintenanceTemplates: MaintenanceTemplate[] = [
       "Airflow remains inadequate after sampling paths and accessible leaks are checked.",
       "The air shifter cannot align or hold idle, vacuum, and pressure positions.",
     ],
-    source: "Pevco Planned Maintenance brochure: Blowers",
+    source: "Equipment PM procedure: Blower",
   },
 ];
 

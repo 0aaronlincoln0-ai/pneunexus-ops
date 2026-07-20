@@ -17,6 +17,7 @@ import { authenticateRequest } from "./_shared/session";
 
 const inputSchema = z.object({
   message: z.string().trim().min(2).max(1_200),
+  deviceContext: z.string().trim().max(240).optional(),
   guideId: z.string().trim().max(80).optional(),
   completedStepIndexes: z.array(z.number().int().min(0).max(30)).max(30).default([]),
   conversation: z
@@ -84,11 +85,12 @@ export default async (request: Request, context: Context) => {
 
     const apiKey = env("OPENAI_API_KEY");
     const baseURL = env("OPENAI_BASE_URL");
-    if (!apiKey || !baseURL)
+    if (!apiKey && !baseURL)
       throw new HttpError(503, "Voice Assist is not configured for this deployment yet.");
 
+    const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
     const protocolContext = diagnosticProtocolContext(
-      input.message,
+      diagnosticQuery,
       input.guideId,
       input.completedStepIndexes,
     );
@@ -98,7 +100,7 @@ export default async (request: Request, context: Context) => {
     const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
       {
         type: "text",
-        text: `APPROVED PROTOCOL EXCERPTS:\n${protocolContext}\n\nRECENT CONVERSATION:\n${priorConversation || "None"}\n\nCURRENT TECHNICIAN REPORT:\n${input.message}`,
+        text: `APPROVED PROTOCOL EXCERPTS:\n${protocolContext}\n\nSAVED EQUIPMENT CONTEXT:\n${input.deviceContext || "None selected"}\n\nRECENT CONVERSATION:\n${priorConversation || "None"}\n\nCURRENT TECHNICIAN REPORT:\n${input.message}`,
       },
     ];
     if (input.imageDataUrl)
@@ -108,7 +110,12 @@ export default async (request: Request, context: Context) => {
       });
 
     const model = env("AI_DIAGNOSTIC_MODEL") ?? defaultDiagnosticModel;
-    const client = new OpenAI({ apiKey, baseURL, timeout: 25_000, maxRetries: 0 });
+    const client = new OpenAI({
+      apiKey: apiKey ?? "netlify-ai-gateway",
+      ...(baseURL ? { baseURL } : {}),
+      timeout: 25_000,
+      maxRetries: 1,
+    });
     const response = await client.chat.completions.create({
       model,
       messages: [
@@ -154,7 +161,7 @@ export default async (request: Request, context: Context) => {
       throw error;
     }
 
-    const approvedGuides = rankDiagnosticGuides(input.message, input.guideId);
+    const approvedGuides = rankDiagnosticGuides(diagnosticQuery, input.guideId);
     const modelRecommendedGuide =
       approvedGuides.find(({ id: guideId }) => guideId === result.recommendedGuideId) ??
       approvedGuides[0];
@@ -217,6 +224,7 @@ export default async (request: Request, context: Context) => {
       escalationReason: invalidStepSelection
         ? "The AI selection did not map to a reviewed protocol step."
         : result.escalationReason,
+      serviceKnowledge: [],
       mode: "ai-gateway",
     };
 

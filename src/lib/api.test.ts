@@ -12,7 +12,7 @@ describe("local development administrator", () => {
     expect(await getSession()).toBeNull();
     await login("admin", "admin");
     expect((await getSession())?.user.role).toBe("organization_admin");
-    expect((await getBootstrap()).metrics.devices).toBeGreaterThan(0);
+    expect((await getBootstrap()).metrics.devices).toBe(0);
     await logout("local-development");
     expect(await getSession()).toBeNull();
   });

@@ -1,13 +1,19 @@
 import type { BootstrapData, SessionUser } from "../types";
 import type { DiagnosticTurnInput, DiagnosticTurnResponse } from "./diagnostic-ai";
 import { localAdminUser, localDemoData } from "./local-demo";
+import { loadLocalWorkspace } from "./local-workspace";
+import { findServiceKnowledge } from "./service-history";
 import { rankTroubleshootingGuides, troubleshootingGuides } from "./troubleshooting";
 
 const localAdminEnabled = import.meta.env.DEV && import.meta.env.VITE_LOCAL_ADMIN !== "false";
-const localSessionKey = "pneunexus-local-admin";
+const localSessionKey = "resovii-local-admin";
+const legacyLocalSessionKey = "pneunexus-local-admin";
 
 function hasLocalSession() {
-  return localStorage.getItem(localSessionKey) === "authenticated";
+  return (
+    localStorage.getItem(localSessionKey) === "authenticated" ||
+    localStorage.getItem(legacyLocalSessionKey) === "authenticated"
+  );
 }
 
 export class ApiError extends Error {
@@ -59,6 +65,7 @@ export async function login(
 export async function logout(csrfToken: string): Promise<void> {
   if (localAdminEnabled) {
     localStorage.removeItem(localSessionKey);
+    localStorage.removeItem(legacyLocalSessionKey);
     return;
   }
   await parse(
@@ -72,10 +79,11 @@ export async function logout(csrfToken: string): Promise<void> {
 
 export async function getBootstrap(): Promise<BootstrapData> {
   if (localAdminEnabled) {
-    if (!hasLocalSession()) throw new ApiError("Authentication required", 401);
-    return localDemoData;
+    return loadLocalWorkspace() ?? localDemoData;
   }
-  return parse(await fetch("/api/bootstrap", { credentials: "include", cache: "no-store" }));
+  const response = await fetch("/api/bootstrap", { credentials: "include", cache: "no-store" });
+  if (response.status === 401) return localDemoData;
+  return parse(response);
 }
 
 export async function createDevice(
@@ -93,20 +101,37 @@ export async function createDevice(
   );
 }
 
+export async function importTubeTrackerConfig(
+  config: unknown,
+  csrfToken: string,
+): Promise<{ createdDevices: number; unchangedDevices: number; warnings: string[] }> {
+  if (localAdminEnabled) return { createdDevices: 0, unchangedDevices: 0, warnings: [] };
+  return parse(
+    await fetch("/api/imports/tube-tracker", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(config),
+    }),
+  );
+}
+
 export async function diagnose(
   input: DiagnosticTurnInput,
   csrfToken: string,
 ): Promise<DiagnosticTurnResponse> {
   if (localAdminEnabled) {
     await new Promise((resolve) => window.setTimeout(resolve, 450));
+    const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
     const guide =
-      rankTroubleshootingGuides(input.message, input.guideId)[0] ?? troubleshootingGuides[0];
+      rankTroubleshootingGuides(diagnosticQuery, input.guideId)[0] ?? troubleshootingGuides[0];
     if (!guide) throw new ApiError("No diagnostic guide is available", 404);
     const nextIndex = guide.steps.findIndex(
       (_, index) => !input.completedStepIndexes.includes(index),
     );
     const step = nextIndex >= 0 ? guide.steps[nextIndex] : null;
     const safetyStop = Boolean(step?.requiresShutdown);
+    const serviceKnowledge = findServiceKnowledge(diagnosticQuery);
     const followUpQuestion = step
       ? `What do you observe after completing this check?`
       : "Did the system pass every return-to-service verification?";
@@ -137,11 +162,12 @@ export async function diagnose(
       escalationReason: !step
         ? "Escalate if return-to-service verification is unsuccessful."
         : null,
+      serviceKnowledge,
       mode: "local-guided",
     };
   }
 
-  return parse(
+  const response = await parse<DiagnosticTurnResponse>(
     await fetch("/api/diagnose", {
       method: "POST",
       credentials: "include",
@@ -149,4 +175,5 @@ export async function diagnose(
       body: JSON.stringify(input),
     }),
   );
+  return { ...response, serviceKnowledge: response.serviceKnowledge ?? [] };
 }

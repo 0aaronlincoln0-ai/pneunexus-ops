@@ -1,8 +1,8 @@
-# PneuNexus Ops
+# Resovii
 
 **Every route. Every device. One operational truth.**
 
-PneuNexus Ops is a secure, multi-tenant hospital infrastructure operations platform for documenting pneumatic-tube systems. Phase 1 provides invite-only authentication, explicit capabilities, tenant-scoped APIs, the executive dashboard, facility hierarchy, and asset registry.
+Resovii is a secure, multi-tenant hospital infrastructure operations platform for documenting pneumatic-tube systems. Phase 1 provides invite-only authentication, explicit capabilities, tenant-scoped APIs, the executive dashboard, facility hierarchy, and asset registry.
 
 > **No PHI in the standard deployment.** Do not enter patient, specimen, medication, prescription, diagnosis, medical-record, or other protected health information. Detection rules can warn or block likely prohibited content but cannot guarantee detection.
 
@@ -35,4 +35,4 @@ See [local development](docs/LOCAL_DEVELOPMENT.md), [deployment](docs/NETLIFY_DE
 
 Phase 1 is implemented. Topology editing and QR access are Phase 2; complete work-order, preventive-maintenance, inspection, and incident workflows are Phase 3; reporting, knowledge base, security-center screens, and audit UI are Phase 4; PWA/offline behavior, deeper accessibility/performance work, and final hardening are Phase 5. Unimplemented areas are not shown as functioning controls.
 
-Designed to support healthcare security and compliance programs when deployed, configured, operated and contracted appropriately. Software features alone do not make an organization compliant. PneuNexus Ops is not “HIPAA certified.”
+Designed to support healthcare security and compliance programs when deployed, configured, operated and contracted appropriately. Software features alone do not make an organization compliant. Resovii is not “HIPAA certified.”

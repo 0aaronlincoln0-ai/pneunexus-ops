@@ -3,10 +3,6 @@ import { expect, test } from "@playwright/test";
 test("standalone planned maintenance workflow can be completed without a system connection", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page.getByLabel("Username or email").fill("admin");
-  await page.getByLabel("Password").fill("admin");
-  await page.getByRole("button", { name: /open maintenance guide/i }).click();
   await page.goto("/maintenance");
 
   await expect(
@@ -16,7 +12,7 @@ test("standalone planned maintenance workflow can be completed without a system 
   await expect(page.getByText(/does not connect to Atlas or the tube system/i)).toBeVisible();
 
   await page.getByLabel("Equipment ID or tag").fill("STA-014");
-  await page.getByLabel("Location").fill("Main Hospital - Laboratory");
+  await page.getByLabel("Location").fill("North wing receiving");
   await page.getByRole("button", { name: /confirm and unlock checklist/i }).click();
   await page.getByRole("button", { name: "Pass" }).first().click();
 

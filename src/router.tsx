@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, useRouterState } from "@tanstack/react-router";
 import { lazy } from "react";
 import { useAuth } from "./auth";
 import { AppShell } from "./components/AppShell";
@@ -24,16 +24,27 @@ const MaintenancePage = lazy(() =>
     default: module.MaintenancePage,
   })),
 );
+const InformationPage = lazy(() =>
+  import("./pages/InformationPage").then((module) => ({
+    default: module.InformationPage,
+  })),
+);
+const AdminServicePage = lazy(() =>
+  import("./pages/AdminServicePage").then((module) => ({
+    default: module.AdminServicePage,
+  })),
+);
 
 function RootComponent() {
   const { loading, user } = useAuth();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   if (loading)
     return (
       <div className="p-10">
         <PageSkeleton />
       </div>
     );
-  return user ? <AppShell /> : <LoginScreen />;
+  return user || pathname !== "/admin" ? <AppShell /> : <LoginScreen />;
 }
 const rootRoute = createRootRoute({
   component: RootComponent,
@@ -74,12 +85,24 @@ const maintenanceRoute = createRoute({
   path: "/maintenance",
   component: MaintenancePage,
 });
+const informationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/information",
+  component: InformationPage,
+});
+const adminServiceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin",
+  component: AdminServicePage,
+});
 const routeTree = rootRoute.addChildren([
   indexRoute,
   facilitiesRoute,
   assetsRoute,
   troubleshootingRoute,
   maintenanceRoute,
+  informationRoute,
+  adminServiceRoute,
 ]);
 export const router = createRouter({
   routeTree,

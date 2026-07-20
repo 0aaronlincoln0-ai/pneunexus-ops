@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Filter, LockKeyhole, PackagePlus, Search, X } from "lucide-react";
-import { useState } from "react";
+import { CircleAlert, FileUp, Filter, LockKeyhole, PackagePlus, Search, X } from "lucide-react";
+import { type ChangeEvent, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useAuth } from "../auth";
@@ -10,7 +10,9 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { useBootstrap } from "../hooks/useBootstrap";
-import { createDevice } from "../lib/api";
+import { createDevice, importTubeTrackerConfig } from "../lib/api";
+import { saveLocalWorkspace } from "../lib/local-workspace";
+import { parseTubeTrackerConfig, type TubeTrackerImportPreview } from "../lib/tube-tracker-import";
 import { titleCase } from "../lib/utils";
 
 export function AssetsPage() {
@@ -19,6 +21,7 @@ export function AssetsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [dialog, setDialog] = useState(false);
+  const [importDialog, setImportDialog] = useState(false);
   if (query.isLoading) return <PageSkeleton />;
   if (!query.data) return <PageError retry={() => void query.refetch()} />;
   const { devices, facilities } = query.data;
@@ -35,13 +38,19 @@ export function AssetsPage() {
       <PageHeading
         eyebrow="Manually maintained equipment reference"
         title="Equipment records"
-        description={`${devices.length} saved reference records across ${new Set(facilities.map((f) => f.campusId)).size} example locations. Status, revision, and service details are entered by users and are never read from live equipment.`}
+        description={`${devices.length} saved equipment records across ${new Set(facilities.map((f) => f.campusId)).size} saved locations. Status, revision, and service details are entered by users and are never read from live equipment.`}
         action={
           canCreate ? (
-            <Button onClick={() => setDialog(true)}>
-              <PackagePlus size={17} />
-              Register device
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => setImportDialog(true)}>
+                <FileUp size={17} />
+                Import device config
+              </Button>
+              <Button onClick={() => setDialog(true)}>
+                <PackagePlus size={17} />
+                Register device
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -130,8 +139,16 @@ export function AssetsPage() {
         </div>
         {filtered.length === 0 && (
           <div className="p-12 text-center">
-            <p className="font-semibold">No equipment matches these filters</p>
-            <p className="mt-1 text-sm text-slate-500">Adjust the search term or status filter.</p>
+            <p className="font-semibold">
+              {devices.length === 0
+                ? "No equipment records yet"
+                : "No equipment matches these filters"}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              {devices.length === 0
+                ? "Register the first device when you are ready."
+                : "Adjust the search term or status filter."}
+            </p>
           </div>
         )}
         <div className="border-t border-white/[0.055] bg-white/[0.012] px-5 py-3 text-[11px] text-slate-600">
@@ -149,7 +166,172 @@ export function AssetsPage() {
           }}
         />
       )}
+      {importDialog && (
+        <TubeTrackerImportDialog
+          close={() => setImportDialog(false)}
+          onImported={async () => {
+            setImportDialog(false);
+            await query.refetch();
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function TubeTrackerImportDialog({
+  close,
+  onImported,
+}: {
+  close(): void;
+  onImported(): Promise<void>;
+}) {
+  const { csrfToken } = useAuth();
+  const input = useRef<HTMLInputElement | null>(null);
+  const [preview, setPreview] = useState<TubeTrackerImportPreview | null>(null);
+  const [config, setConfig] = useState<unknown>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [filename, setFilename] = useState("");
+
+  async function selectFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setFilename(file.name);
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      setPreview(parseTubeTrackerConfig(parsed));
+      setConfig(parsed);
+      setError(null);
+    } catch (cause) {
+      setPreview(null);
+      setConfig(null);
+      setError(
+        cause instanceof Error
+          ? `This file is not a supported Tube Tracker configuration: ${cause.message}`
+          : "This file is not a supported Tube Tracker configuration.",
+      );
+    }
+  }
+
+  async function confirmImport() {
+    if (!preview || !config) return;
+    if (import.meta.env.DEV && import.meta.env.VITE_LOCAL_ADMIN !== "false") {
+      saveLocalWorkspace(preview.data);
+    } else {
+      if (!csrfToken) throw new Error("Your session has expired. Sign in again before importing.");
+      await importTubeTrackerConfig(config, csrfToken);
+    }
+    await onImported();
+  }
+
+  const typeCounts = preview
+    ? Object.entries(
+        preview.data.devices.reduce<Record<string, number>>((counts, device) => {
+          counts[device.type] = (counts[device.type] ?? 0) + 1;
+          return counts;
+        }, {}),
+      )
+    : [];
+
+  return (
+    <Dialog.Root open onOpenChange={(open) => !open && close()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-[#05080c]/85 backdrop-blur-sm" />
+        <Dialog.Content className="asset-dialog surface-panel fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl shadow-2xl focus:outline-none sm:w-[calc(100%-2rem)]">
+          <div className="flex items-start justify-between gap-4 border-b border-white/[0.06] px-5 py-5 sm:px-6">
+            <div>
+              <Dialog.Title className="text-lg font-semibold text-white">
+                Import device configuration
+              </Dialog.Title>
+              <Dialog.Description className="mt-1 text-sm leading-5 text-slate-500">
+                Supports Tube Tracker JSON v1. Review the layout before importing devices.
+              </Dialog.Description>
+            </div>
+            <Button variant="ghost" size="icon" aria-label="Close import" onClick={close}>
+              <X />
+            </Button>
+          </div>
+          <div className="space-y-5 p-5 sm:p-6">
+            <div className="rounded-xl border border-dashed border-teal-300/20 bg-teal-300/[0.035] p-5">
+              <p className="text-sm font-semibold text-slate-200">Select customer configuration</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                The file is validated in this browser before any equipment records are replaced.
+              </p>
+              <Button className="mt-4" variant="secondary" onClick={() => input.current?.click()}>
+                <FileUp size={16} /> Select JSON file
+              </Button>
+              <input
+                ref={input}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => void selectFile(event)}
+              />
+              {filename && <p className="mt-3 truncate text-xs text-teal-200">{filename}</p>}
+            </div>
+
+            {error && (
+              <p
+                role="alert"
+                className="rounded-xl border border-red-300/20 bg-red-300/[0.06] px-4 py-3 text-xs leading-5 text-red-100"
+              >
+                {error}
+              </p>
+            )}
+
+            {preview && (
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <ImportMetric label="Project" value={preview.source.projectName} />
+                  <ImportMetric label="System" value={preview.source.systemType} />
+                  <ImportMetric label="Devices" value={String(preview.data.devices.length)} />
+                </div>
+                <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">
+                    Detected equipment
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {typeCounts.map(([type, count]) => (
+                      <Badge key={type}>{`${count} ${type}${count === 1 ? "" : "s"}`}</Badge>
+                    ))}
+                  </div>
+                </div>
+                {preview.warnings.length > 0 && (
+                  <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.04] p-4">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-200">
+                      <CircleAlert size={16} /> Review before import
+                    </div>
+                    <ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400">
+                      {preview.warnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col-reverse gap-2 border-t border-white/[0.06] p-4 sm:flex-row sm:justify-end sm:px-6">
+            <Button variant="ghost" onClick={close}>
+              Cancel
+            </Button>
+            <Button disabled={!preview} onClick={() => void confirmImport()}>
+              Import {preview ? `${preview.data.devices.length} devices` : "configuration"}
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function ImportMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5">
+      <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">{label}</p>
+      <p className="mt-2 truncate text-sm font-semibold text-slate-100">{value}</p>
+    </div>
   );
 }
 
@@ -310,7 +492,7 @@ function DeviceDialog({
               />
               <Input
                 label="Asset tag"
-                placeholder="GLR-MC-STA-031"
+                placeholder="STA-001"
                 register={form.register("assetTag")}
                 error={form.formState.errors.assetTag?.message}
               />

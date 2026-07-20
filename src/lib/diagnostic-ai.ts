@@ -17,6 +17,14 @@ export interface DiagnosticTurnResponse {
   evidenceToCollect: string[];
   escalate: boolean;
   escalationReason: string | null;
+  serviceKnowledge: Array<{
+    id: string;
+    title: string;
+    equipment: string;
+    location: string;
+    resolution: string;
+    status: "resolved" | "monitoring" | "open";
+  }>;
   mode: "ai-gateway" | "local-guided";
 }
 
@@ -30,5 +38,6 @@ export interface DiagnosticTurnInput {
   guideId?: string;
   completedStepIndexes: number[];
   conversation: DiagnosticConversationMessage[];
+  deviceContext?: string;
   imageDataUrl?: string;
 }

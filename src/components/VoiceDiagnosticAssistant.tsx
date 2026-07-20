@@ -5,11 +5,12 @@ import {
   Camera,
   Check,
   ChevronRight,
+  History,
   Keyboard,
   LoaderCircle,
   Mic,
   MicOff,
-  RotateCcw,
+  MessageSquarePlus,
   Send,
   ShieldCheck,
   Sparkles,
@@ -21,31 +22,23 @@ import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } fro
 import { useAuth } from "../auth";
 import * as api from "../lib/api";
 import type { DiagnosticConversationMessage, DiagnosticTurnResponse } from "../lib/diagnostic-ai";
+import {
+  diagnosticHistoryTitle,
+  loadDiagnosticHistory,
+  upsertDiagnosticHistory,
+  type DiagnosticHistoryEntry,
+} from "../lib/diagnostic-history";
 import { cn } from "../lib/utils";
 import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
 
 interface VoiceDiagnosticAssistantProps {
-  selectedGuideId: string;
-  selectedGuideTitle: string;
-  selectedGuideSummary: string;
-  selectedGuideSource: string;
-  completedStepIndexes: number[];
-  onGuideSelected(id: string): void;
+  deviceContext?: string;
 }
 
 type AssistantPhase = "ready" | "listening" | "thinking" | "speaking";
 
-const quickStarts = ["A carrier is missing", "A station will not send", "Airflow feels weak"];
-
-export function VoiceDiagnosticAssistant({
-  selectedGuideId,
-  selectedGuideTitle,
-  selectedGuideSummary,
-  selectedGuideSource,
-  completedStepIndexes,
-  onGuideSelected,
-}: VoiceDiagnosticAssistantProps) {
+export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssistantProps) {
   const { csrfToken } = useAuth();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<DiagnosticConversationMessage[]>([]);
@@ -54,10 +47,14 @@ export function VoiceDiagnosticAssistant({
   const [phase, setPhase] = useState<AssistantPhase>("ready");
   const [photo, setPhoto] = useState<{ dataUrl: string; name: string } | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(true);
+  const [sessionId, setSessionId] = useState<string>(createSessionId);
+  const [guideId, setGuideId] = useState<string | undefined>();
+  const [history, setHistory] = useState<DiagnosticHistoryEntry[]>(loadDiagnosticHistory);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const conversationEndRef = useRef<HTMLDivElement | null>(null);
+  const sessionCreatedAtRef = useRef(new Date().toISOString());
 
   const busy = phase === "thinking";
   const started = messages.length > 0 || result !== null;
@@ -65,6 +62,22 @@ export function VoiceDiagnosticAssistant({
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, phase]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+    const now = new Date().toISOString();
+    setHistory(
+      upsertDiagnosticHistory({
+        id: sessionId,
+        createdAt: sessionCreatedAtRef.current,
+        updatedAt: now,
+        title: diagnosticHistoryTitle(messages),
+        ...(deviceContext ? { deviceContext } : {}),
+        ...(guideId ? { guideId } : {}),
+        messages,
+      }),
+    );
+  }, [deviceContext, guideId, messages, sessionId]);
 
   useEffect(
     () => () => {
@@ -88,7 +101,13 @@ export function VoiceDiagnosticAssistant({
 
   async function sendMessage(message: string) {
     const cleaned = message.trim();
-    if (!cleaned || !csrfToken || busy) return;
+    if (!cleaned || busy) return;
+    if (!csrfToken) {
+      setError(
+        "Sign in to an authorized Resovii workspace before starting a live diagnostic session.",
+      );
+      return;
+    }
     const conversation = messages.slice(-8);
     setMessages((current) => [...current, { role: "user", text: cleaned }]);
     setInput("");
@@ -98,17 +117,17 @@ export function VoiceDiagnosticAssistant({
       const nextResult = await api.diagnose(
         {
           message: cleaned,
-          guideId: selectedGuideId,
-          completedStepIndexes,
+          ...(guideId ? { guideId } : {}),
+          completedStepIndexes: [],
           conversation,
+          ...(deviceContext ? { deviceContext } : {}),
           ...(photo ? { imageDataUrl: photo.dataUrl } : {}),
         },
         csrfToken,
       );
       setResult(nextResult);
       setMessages((current) => [...current, { role: "assistant", text: nextResult.speech }]);
-      if (nextResult.recommendedGuideId !== selectedGuideId)
-        onGuideSelected(nextResult.recommendedGuideId);
+      setGuideId(nextResult.recommendedGuideId);
       setPhoto(null);
       if (autoSpeak) speakText(nextResult.speech);
       else setPhase("ready");
@@ -172,10 +191,26 @@ export function VoiceDiagnosticAssistant({
     }
   }
 
-  function startOver() {
+  function startNewConversation() {
     recognitionRef.current?.stop();
     window.speechSynthesis?.cancel();
     setMessages([]);
+    setResult(null);
+    setPhoto(null);
+    setInput("");
+    setError(null);
+    setPhase("ready");
+    setGuideId(undefined);
+    setSessionId(createSessionId());
+    sessionCreatedAtRef.current = new Date().toISOString();
+  }
+
+  function resumeConversation(entry: DiagnosticHistoryEntry) {
+    window.speechSynthesis?.cancel();
+    setSessionId(entry.id);
+    sessionCreatedAtRef.current = entry.createdAt;
+    setMessages(entry.messages);
+    setGuideId(entry.guideId);
     setResult(null);
     setPhoto(null);
     setInput("");
@@ -200,7 +235,7 @@ export function VoiceDiagnosticAssistant({
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-xl font-semibold tracking-[-0.03em] text-white">
-                  Guided Voice Assistant
+                  Pocket Technician
                 </h2>
                 <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-300">
                   Ready to help
@@ -228,16 +263,16 @@ export function VoiceDiagnosticAssistant({
             {started && (
               <button
                 type="button"
-                onClick={startOver}
+                onClick={startNewConversation}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-400 transition hover:bg-white/[0.05] hover:text-white sm:px-3.5"
               >
-                <RotateCcw size={17} /> Start over
+                <MessageSquarePlus size={17} /> New conversation
               </button>
             )}
           </div>
         </div>
 
-        <div className="mt-6 grid gap-2 sm:grid-cols-3" aria-label="How Voice Assist works">
+        <div className="mt-6 grid gap-2 sm:grid-cols-3" aria-label="How Pocket Technician works">
           <HowItWorksStep
             number="1"
             icon={AudioLines}
@@ -276,7 +311,9 @@ export function VoiceDiagnosticAssistant({
                 <p className="text-sm font-semibold text-slate-200">{phaseLabel(phase)}</p>
               </div>
               <p className="hidden text-xs text-slate-600 sm:block">
-                Protocol: {selectedGuideTitle}
+                {guideId
+                  ? "A reviewed procedure is matched to this case"
+                  : "Procedure match begins with your report"}
               </p>
             </div>
 
@@ -291,22 +328,9 @@ export function VoiceDiagnosticAssistant({
                   </div>
                   <h3 className="mt-4 text-lg font-semibold text-white">What is happening?</h3>
                   <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                    Include the device, any message on the screen, and what the carrier did. You can
-                    also choose an example.
+                    Describe the observation in your own words. Include the device, any fault text,
+                    and what the carrier or system did.
                   </p>
-                  <div className="mt-5 flex flex-wrap justify-center gap-2">
-                    {quickStarts.map((prompt) => (
-                      <button
-                        key={prompt}
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void sendMessage(prompt)}
-                        className="min-h-12 rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 text-sm font-semibold text-slate-300 transition hover:border-teal-300/20 hover:bg-teal-300/[0.05] hover:text-white"
-                      >
-                        {prompt}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
 
@@ -454,8 +478,25 @@ export function VoiceDiagnosticAssistant({
 
         <aside
           className="border-t border-white/[0.07] bg-white/[0.015] p-5 lg:border-l lg:border-t-0 sm:p-7"
-          aria-label="Current guided step"
+          aria-label="Diagnostic history and current guidance"
         >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.17em] text-teal-300/70">
+                Diagnostic history
+              </p>
+              <p className="mt-1 text-sm text-slate-500">Resume a recent field conversation</p>
+            </div>
+          </div>
+
+          <ConversationHistory
+            history={history}
+            activeId={sessionId}
+            onResume={resumeConversation}
+          />
+
+          <div className="my-6 border-t border-white/[0.07]" />
+
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.17em] text-teal-300/70">
@@ -489,11 +530,7 @@ export function VoiceDiagnosticAssistant({
               }
             />
           ) : (
-            <ReadyPanel
-              guideTitle={selectedGuideTitle}
-              guideSummary={selectedGuideSummary}
-              guideSource={selectedGuideSource}
-            />
+            <ReadyPanel />
           )}
         </aside>
       </div>
@@ -627,6 +664,32 @@ function CurrentStep({
       </div>
       <p className="mt-5 text-sm leading-6 text-slate-400">{result.summary}</p>
 
+      {result.serviceKnowledge.length > 0 && (
+        <div className="mt-5 rounded-2xl border border-indigo-300/15 bg-indigo-300/[0.045] p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.13em] text-indigo-200">
+            Related field resolutions
+          </p>
+          <p className="mt-2 text-xs leading-5 text-slate-400">
+            Technician-recorded experience. Review it alongside the approved procedure; it does not
+            replace the safety gate.
+          </p>
+          <div className="mt-3 space-y-3">
+            {result.serviceKnowledge.map((record) => (
+              <div
+                key={record.id}
+                className="rounded-xl border border-white/[0.07] bg-black/10 p-3"
+              >
+                <p className="text-sm font-semibold text-slate-200">{record.title}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {record.equipment} | {record.location} | {record.status}
+                </p>
+                <p className="mt-2 text-xs leading-5 text-slate-400">{record.resolution}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {result.safetyStop && (
         <div className="mt-5 rounded-2xl border border-red-300/25 bg-red-300/[0.07] p-4">
           <div className="flex items-center gap-2 text-sm font-bold text-red-100">
@@ -715,30 +778,88 @@ function CurrentStep({
   );
 }
 
-function ReadyPanel({
-  guideTitle,
-  guideSummary,
-  guideSource,
+function ConversationHistory({
+  history,
+  activeId,
+  onResume,
 }: {
-  guideTitle: string;
-  guideSummary: string;
-  guideSource: string;
+  history: DiagnosticHistoryEntry[];
+  activeId: string;
+  onResume(entry: DiagnosticHistoryEntry): void;
 }) {
+  if (!history.length) {
+    return (
+      <div className="mt-5 rounded-xl border border-dashed border-white/[0.09] bg-white/[0.015] p-4">
+        <History size={18} className="text-slate-600" />
+        <p className="mt-3 text-sm font-semibold text-slate-300">No saved conversations yet</p>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          Your diagnostic conversation will appear here after the first message.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-5 space-y-2">
+      {history.slice(0, 5).map((entry) => (
+        <button
+          key={entry.id}
+          type="button"
+          onClick={() => onResume(entry)}
+          className={cn(
+            "w-full rounded-xl border p-3.5 text-left transition",
+            entry.id === activeId
+              ? "border-teal-300/20 bg-teal-300/[0.055]"
+              : "border-white/[0.07] bg-white/[0.018] hover:border-white/[0.14] hover:bg-white/[0.035]",
+          )}
+        >
+          <div className="flex items-start gap-3">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-teal-300">
+              <History size={15} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-slate-200">
+                {entry.title}
+              </span>
+              <span className="mt-1 block text-xs text-slate-600">
+                {new Intl.DateTimeFormat(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                }).format(new Date(entry.updatedAt))}
+                {entry.messages.length > 1 ? ` | ${entry.messages.length} messages` : ""}
+              </span>
+            </span>
+            <ChevronRight size={16} className="mt-1 shrink-0 text-slate-600" />
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ReadyPanel() {
   return (
     <div className="mt-7">
       <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.035] p-5">
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-teal-300/70">
-          Protocol in view
+          Start with the observation
         </p>
-        <p className="mt-2 text-lg font-semibold text-white">{guideTitle}</p>
-        <p className="mt-2 text-sm leading-6 text-slate-500">{guideSummary}</p>
+        <p className="mt-2 text-lg font-semibold text-white">
+          Describe what is happening in the field
+        </p>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          Pocket Technician will match a reviewed procedure after it understands the issue. It does
+          not assume a fault before you report one.
+        </p>
       </div>
       <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
         <p className="text-sm font-semibold text-slate-200">Include these observations</p>
         <ul className="mt-5 space-y-3">
           {[
             "Exact device or station",
-            "Fault text or Atlas state read locally",
+            "Fault text or status shown locally",
             "What moved or did not move",
           ].map((item) => (
             <li key={item} className="flex items-center gap-3 text-sm text-slate-300">
@@ -749,12 +870,9 @@ function ReadyPanel({
             </li>
           ))}
         </ul>
-        <div className="mt-5 border-t border-white/[0.06] pt-4">
-          <p className="text-xs leading-5 text-slate-600">
-            Use the single voice, text, or photo composer beneath the conversation. Guidance is
-            grounded in {guideSource}.
-          </p>
-        </div>
+        <p className="mt-5 border-t border-white/[0.06] pt-4 text-xs leading-5 text-slate-600">
+          Use voice, text, or a photo. Keep messages limited to equipment information.
+        </p>
       </div>
     </div>
   );
@@ -765,6 +883,10 @@ function phaseLabel(phase: AssistantPhase): string {
   if (phase === "thinking") return "Finding the safest next step";
   if (phase === "speaking") return "Reading your instruction aloud";
   return "Ready for your observation";
+}
+
+function createSessionId(): string {
+  return crypto.randomUUID();
 }
 
 interface SpeechRecognitionEventLike {

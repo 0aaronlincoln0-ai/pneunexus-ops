@@ -1,15 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-test("authenticated troubleshooting workspace fits phone and tablet viewports", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await page.getByLabel("Username or email").fill("admin");
-  await page.getByLabel("Password").fill("admin");
-  await page.getByRole("button", { name: /open maintenance guide/i }).click();
+test("public troubleshooting workspace fits phone and tablet viewports", async ({ page }) => {
   await page.goto("/troubleshoot");
 
-  await expect(page.getByRole("heading", { name: "Guided Voice Assistant" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pocket Technician" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Type a message to Voice Assist" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Type a message to Voice Assist" })).toHaveCount(
     1,

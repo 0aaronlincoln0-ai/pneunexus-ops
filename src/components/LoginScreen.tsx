@@ -62,9 +62,7 @@ export function LoginScreen() {
             <div className="flex items-center gap-3.5">
               <LogoMark />
               <div>
-                <p className="text-[15px] font-semibold tracking-[-0.02em] text-white">
-                  PneuNexus Systems
-                </p>
+                <p className="text-[15px] font-semibold tracking-[-0.02em] text-white">Resovii</p>
                 <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                   Pneumatic tube maintenance
                 </p>
@@ -132,7 +130,7 @@ export function LoginScreen() {
             <div className="mb-14 flex items-center gap-3.5 lg:hidden">
               <LogoMark />
               <div>
-                <p className="font-semibold text-white">PneuNexus Field Guide</p>
+                <p className="font-semibold text-white">Resovii</p>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">
                   Pneumatic tube maintenance
                 </p>
@@ -286,12 +284,14 @@ export function LogoMark({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "relative grid h-10 w-10 place-items-center overflow-hidden rounded-xl border border-teal-200/20 bg-teal-300 text-[#04100f] shadow-[0_12px_30px_rgba(45,212,191,0.16)]",
+        "relative grid h-11 w-11 place-items-center overflow-hidden rounded-xl border border-teal-200/25 bg-[#0a2c2a] text-teal-100 shadow-[0_14px_32px_rgba(45,212,191,0.2)] before:absolute before:inset-1 before:rounded-lg before:border before:border-teal-200/20 before:bg-teal-300/[0.12]",
         className,
       )}
     >
-      <Route size={21} strokeWidth={2.25} />
-      <div className="absolute right-0 top-0 h-2.5 w-2.5 border-b border-l border-[#04100f]/20" />
+      <span className="relative grid h-7 w-7 place-items-center rounded-lg bg-teal-300 text-[#04100f] shadow-[0_4px_12px_rgba(45,212,191,0.36)]">
+        <Route size={17} strokeWidth={2.5} />
+      </span>
+      <div className="absolute right-0 top-0 h-3 w-3 border-b border-l border-teal-100/30" />
     </div>
   );
 }

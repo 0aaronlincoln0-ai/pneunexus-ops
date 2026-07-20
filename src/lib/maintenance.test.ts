@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { maintenanceTemplates } from "./maintenance";
 
 describe("planned maintenance knowledge model", () => {
-  it("covers the three Pevco device families", () => {
+  it("covers the three supported device families", () => {
     expect(maintenanceTemplates.map(({ id }) => id)).toEqual(["station", "diverter", "blower"]);
   });
 
@@ -13,7 +13,7 @@ describe("planned maintenance knowledge model", () => {
       expect(template.steps).toHaveLength(6);
       expect(template.verification.length).toBeGreaterThanOrEqual(4);
       expect(template.escalation.length).toBeGreaterThanOrEqual(4);
-      expect(template.source).toContain("Pevco Planned Maintenance");
+      expect(template.source).toContain("Equipment PM procedure");
       for (const step of template.steps) {
         expect(step.instruction.length).toBeGreaterThan(40);
         expect(step.passCriteria.length).toBeGreaterThan(20);

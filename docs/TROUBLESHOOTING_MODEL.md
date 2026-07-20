@@ -2,7 +2,7 @@
 
 ## Purpose
 
-PneuNexus Ops provides evidence-led decision support for hospital pneumatic tube system
+Resovii provides evidence-led decision support for hospital pneumatic tube system
 technicians. It does not issue live device commands and does not replace manufacturer procedures,
 hospital policy, lockout/tagout, infection prevention, IT change control, or qualified electrical
 work.
@@ -56,6 +56,6 @@ gate or escalation condition.
 ## Source profile
 
 The first knowledge profile was derived from the supplied Pevco ATLAS software and mechanical
-training booklet. Content is paraphrased into a consistent PneuNexus workflow and deliberately
+training booklet. Content is paraphrased into a consistent Resovii workflow and deliberately
 omits live-control shortcuts and improvised impact-recovery actions. Site manuals and current
 manufacturer documentation remain authoritative.

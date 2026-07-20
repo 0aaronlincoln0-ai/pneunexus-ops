@@ -3,30 +3,32 @@ import {
   BookOpenCheck,
   Check,
   CheckCircle2,
-  Circle,
   ClipboardCheck,
-  ExternalLink,
   Fan,
   FileText,
   GitBranch,
   LockKeyhole,
+  Mail,
   PackageOpen,
-  Phone,
   RotateCcw,
   ShieldCheck,
   TriangleAlert,
   Wrench,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../auth";
 import { PageHeading } from "../components/QueryState";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import { useBootstrap } from "../hooks/useBootstrap";
 import {
   getMaintenanceTemplate,
   maintenanceTemplates,
   type MaintenanceDeviceFamily,
 } from "../lib/maintenance";
+import { createPmReport } from "../lib/pm-report";
+import type { DeviceRow } from "../types";
 import { cn } from "../lib/utils";
 
 const iconByFamily = {
@@ -38,8 +40,10 @@ const iconByFamily = {
 type Finding = "pass" | "attention" | "not-applicable";
 
 interface SavedPmState {
+  deviceId: string;
   equipmentId: string;
   location: string;
+  workOrder: string;
   safetyConfirmed: boolean;
   completed: number[];
   findings: Record<number, Finding>;
@@ -47,20 +51,28 @@ interface SavedPmState {
 }
 
 function storageKey(templateId: string) {
+  return `resovii-pm-${templateId}`;
+}
+
+function legacyStorageKey(templateId: string) {
   return `pneunexus-pm-${templateId}`;
 }
 
 function loadState(templateId: string): SavedPmState {
   const empty: SavedPmState = {
+    deviceId: "",
     equipmentId: "",
     location: "",
+    workOrder: "",
     safetyConfirmed: false,
     completed: [],
     findings: {},
     notes: {},
   };
   try {
-    const stored = localStorage.getItem(storageKey(templateId));
+    const stored =
+      localStorage.getItem(storageKey(templateId)) ??
+      localStorage.getItem(legacyStorageKey(templateId));
     return stored ? { ...empty, ...(JSON.parse(stored) as Partial<SavedPmState>) } : empty;
   } catch {
     return empty;
@@ -68,13 +80,13 @@ function loadState(templateId: string): SavedPmState {
 }
 
 export function MaintenancePage() {
+  const { user } = useAuth();
+  const bootstrap = useBootstrap();
   const [selectedId, setSelectedId] = useState<MaintenanceDeviceFamily>("station");
   const template = useMemo(() => getMaintenanceTemplate(selectedId), [selectedId]);
   const [state, setState] = useState<SavedPmState>(() => loadState(selectedId));
-
-  useEffect(() => {
-    setState(loadState(selectedId));
-  }, [selectedId]);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [supervisorEmail, setSupervisorEmail] = useState("");
 
   useEffect(() => {
     localStorage.setItem(storageKey(selectedId), JSON.stringify(state));
@@ -86,9 +98,50 @@ export function MaintenancePage() {
     (finding) => finding === "attention",
   ).length;
   const readyToClose = completed.size === template.steps.length && attentionCount === 0;
+  const report = useMemo(
+    () =>
+      createPmReport({
+        template,
+        equipmentId: state.equipmentId,
+        location: state.location,
+        technician: user?.displayName ?? "",
+        workOrder: state.workOrder,
+        safetyConfirmed: state.safetyConfirmed,
+        completed: state.completed,
+        findings: state.findings,
+        notes: state.notes,
+      }),
+    [state, template, user?.displayName],
+  );
+  const compatibleDevices = (bootstrap.data?.devices ?? []).filter(
+    (device) => deviceFamily(device) === selectedId,
+  );
+  const selectedDevice = compatibleDevices.find((device) => device.id === state.deviceId) ?? null;
 
   function update(patch: Partial<SavedPmState>) {
     setState((current) => ({ ...current, ...patch }));
+  }
+
+  function chooseFamily(family: MaintenanceDeviceFamily) {
+    setSelectedId(family);
+    setState(loadState(family));
+  }
+
+  function chooseDevice(deviceId: string) {
+    const device = (bootstrap.data?.devices ?? []).find((candidate) => candidate.id === deviceId);
+    if (!device) {
+      update({ deviceId: "" });
+      return;
+    }
+    const family = deviceFamily(device);
+    if (!family) return;
+    if (family !== selectedId) chooseFamily(family);
+    setState((current) => ({
+      ...current,
+      deviceId: device.id,
+      equipmentId: device.assetTag,
+      location: deviceLocation(device, bootstrap.data?.facilities ?? []),
+    }));
   }
 
   function setFinding(index: number, finding: Finding) {
@@ -114,14 +167,9 @@ export function MaintenancePage() {
   return (
     <>
       <PageHeading
-        eyebrow="Standalone planned maintenance"
+        eyebrow="Planned maintenance"
         title="Complete a PM from start to finish"
-        description="Choose the equipment family, identify the device, confirm safe work conditions, complete each inspection, record findings, and verify operation. This checklist does not connect to Atlas or the tube system."
-        action={
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.045] px-3.5 py-2.5 text-[11px] font-semibold text-emerald-200">
-            <ShieldCheck size={15} /> Manual checklist · saved on this device
-          </div>
-        }
+        description="Choose the equipment family, identify the device, confirm safe work conditions, complete each inspection, record findings, and verify operation."
       />
 
       <Card className="mb-6 border-teal-300/10 bg-teal-300/[0.025] p-5 sm:p-6">
@@ -134,8 +182,7 @@ export function MaintenancePage() {
             <p className="mt-2 max-w-4xl text-xs leading-6 text-slate-500">
               All equipment identification, inspection results, and completion marks are entered by
               the technician. The app provides the procedure and saves progress in this browser; it
-              does not read device states, issue commands, update Atlas, or synchronize with a
-              hospital network.
+              does not read device states, issue commands, or synchronize with external equipment.
             </p>
           </div>
         </div>
@@ -149,7 +196,7 @@ export function MaintenancePage() {
             <button
               key={item.id}
               type="button"
-              onClick={() => setSelectedId(item.id)}
+              onClick={() => chooseFamily(item.id)}
               className={cn(
                 "rounded-2xl border p-5 text-left transition",
                 active
@@ -192,10 +239,58 @@ export function MaintenancePage() {
             </div>
             <div className="space-y-4 p-5">
               <label className="block">
+                <span className="text-xs font-semibold text-slate-300">Saved device</span>
+                <select
+                  value={state.deviceId}
+                  onChange={(event) => chooseDevice(event.target.value)}
+                  className="mt-2 min-h-12 w-full rounded-xl border border-white/[0.08] bg-[#101821] px-3 text-base text-slate-100 outline-none focus:border-teal-300/30"
+                >
+                  <option value="">Enter equipment manually</option>
+                  {compatibleDevices.map((device) => (
+                    <option key={device.id} value={device.id}>
+                      {device.assetTag} - {device.equipmentTag}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-2 block text-[11px] leading-5 text-slate-600">
+                  {compatibleDevices.length
+                    ? `${compatibleDevices.length} imported ${template.shortName.toLowerCase()} record${compatibleDevices.length === 1 ? "" : "s"} available.`
+                    : "Import a device configuration or enter the equipment manually."}
+                </span>
+              </label>
+              {selectedDevice && (
+                <div className="rounded-xl border border-teal-300/15 bg-teal-300/[0.04] p-3.5 text-xs leading-5 text-slate-400">
+                  <p className="font-semibold text-teal-200">{selectedDevice.equipmentTag}</p>
+                  <p className="mt-1">
+                    {selectedDevice.type} | {selectedDevice.operationalStatus} |{" "}
+                    {selectedDevice.manufacturer}
+                  </p>
+                </div>
+              )}
+              <section
+                className="rounded-xl border border-teal-300/15 bg-teal-300/[0.035] p-4"
+                aria-label="Tools and references"
+              >
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-100">
+                  <Wrench size={16} className="text-teal-300" /> Tools and references
+                </div>
+                <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                  Have these ready before the inspection begins.
+                </p>
+                <ul className="mt-3 space-y-2.5">
+                  {template.tools.map((tool) => (
+                    <li key={tool} className="flex gap-2.5 text-xs leading-5 text-slate-300">
+                      <Check size={14} className="mt-0.5 shrink-0 text-teal-300" />
+                      {tool}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <label className="block">
                 <span className="text-xs font-semibold text-slate-300">Equipment ID or tag</span>
                 <input
                   value={state.equipmentId}
-                  onChange={(event) => update({ equipmentId: event.target.value })}
+                  onChange={(event) => update({ deviceId: "", equipmentId: event.target.value })}
                   placeholder={`Example: ${template.shortName.toUpperCase()}-014`}
                   className="mt-2 min-h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-base text-slate-100 outline-none placeholder:text-slate-700 focus:border-teal-300/30"
                 />
@@ -206,6 +301,15 @@ export function MaintenancePage() {
                   value={state.location}
                   onChange={(event) => update({ location: event.target.value })}
                   placeholder="Building, floor, department"
+                  className="mt-2 min-h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-base text-slate-100 outline-none placeholder:text-slate-700 focus:border-teal-300/30"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-300">Work order / reference</span>
+                <input
+                  value={state.workOrder}
+                  onChange={(event) => update({ workOrder: event.target.value })}
+                  placeholder="Example: WO-2041"
                   className="mt-2 min-h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-base text-slate-100 outline-none placeholder:text-slate-700 focus:border-teal-300/30"
                 />
               </label>
@@ -224,24 +328,13 @@ export function MaintenancePage() {
                   {completed.size} of {template.steps.length} inspections recorded
                 </p>
               </div>
+              <Button variant="secondary" className="w-full" onClick={() => setReportOpen(true)}>
+                <Mail size={16} /> Build PM report
+              </Button>
               <Button variant="ghost" className="w-full" onClick={resetPm}>
                 <RotateCcw size={16} /> Reset this PM
               </Button>
             </div>
-          </Card>
-
-          <Card className="p-5">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
-              <Wrench size={16} className="text-teal-300" /> Tools and references
-            </div>
-            <ul className="mt-4 space-y-2.5">
-              {template.tools.map((tool) => (
-                <li key={tool} className="flex gap-2.5 text-xs leading-5 text-slate-500">
-                  <Circle size={7} className="mt-1.5 shrink-0 fill-slate-700 text-slate-700" />
-                  {tool}
-                </li>
-              ))}
-            </ul>
           </Card>
         </div>
 
@@ -442,36 +535,155 @@ export function MaintenancePage() {
                         : "Complete every inspection to finish the PM"}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Progress stays in this browser. It is not transmitted to Atlas or hospital
-                    equipment.
+                    Progress stays in this browser. It is not transmitted to external equipment.
                   </p>
                   <p className="mt-2 text-[10px] text-slate-600">
-                    Source: {template.source}. The exact equipment-revision manual and hospital
+                    Source: {template.source}. The exact equipment-revision manual and site
                     procedure take precedence.
                   </p>
                 </div>
               </div>
               <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-                <a
-                  href="https://pevcosupport.zendesk.com/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.03] px-4 text-xs font-semibold text-slate-300 transition hover:border-white/[0.16] hover:bg-white/[0.05]"
-                >
-                  Request service <ExternalLink size={15} />
-                </a>
-                <a
-                  href="tel:18002967382"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-400 px-4 text-xs font-bold text-[#04100f] transition hover:bg-teal-300"
-                >
-                  <Phone size={15} /> Call Pevco
-                </a>
+                <Button variant="secondary" onClick={() => setReportOpen(true)}>
+                  <Mail size={15} /> PM report
+                </Button>
               </div>
             </div>
           </Card>
         </div>
       </div>
+      {reportOpen && (
+        <PmReportDialog
+          report={report}
+          supervisorEmail={supervisorEmail}
+          onSupervisorEmailChange={setSupervisorEmail}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
     </>
+  );
+}
+
+function deviceFamily(device: DeviceRow): MaintenanceDeviceFamily | null {
+  const type = device.type.toLowerCase();
+  if (type.includes("station")) return "station";
+  if (type.includes("blower")) return "blower";
+  if (type.includes("diverter")) return "diverter";
+  return null;
+}
+
+function deviceLocation(
+  device: DeviceRow,
+  facilities: { floorId: string; buildingName: string; floorName: string }[],
+) {
+  const floor = facilities.find((facility) => facility.floorId === device.floorId);
+  return floor ? `${floor.buildingName} - ${floor.floorName}` : "Location not recorded";
+}
+
+function PmReportDialog({
+  report,
+  supervisorEmail,
+  onSupervisorEmailChange,
+  onClose,
+}: {
+  report: ReturnType<typeof createPmReport>;
+  supervisorEmail: string;
+  onSupervisorEmailChange: (value: string) => void;
+  onClose: () => void;
+}) {
+  const canEmail = supervisorEmail.trim().length > 3;
+  const mailto = `mailto:${encodeURIComponent(supervisorEmail.trim())}?subject=${encodeURIComponent(report.subject)}&body=${encodeURIComponent(report.body)}`;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pm-report-title"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
+      <Card className="max-h-[92dvh] w-full max-w-3xl overflow-hidden rounded-t-2xl sm:rounded-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-white/[0.07] px-5 py-5 sm:px-6">
+          <div>
+            <p className="eyebrow">Supervisor closeout</p>
+            <h2 id="pm-report-title" className="mt-2 text-lg font-semibold text-white">
+              Detailed PM report ready for review
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              The email draft includes every inspection result, technician note, and open finding.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-11 w-11 place-items-center rounded-xl text-slate-500 transition hover:bg-white/[0.05] hover:text-white"
+            aria-label="Close PM report"
+          >
+            <span className="text-xl leading-none">x</span>
+          </button>
+        </div>
+        <div className="space-y-5 overflow-y-auto p-5 sm:p-6">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <ReportMetric label="Completion" value={`${report.completionPercent}%`} />
+            <ReportMetric label="Open findings" value={String(report.attentionCount)} />
+            <ReportMetric label="Delivery" value="Email draft" />
+          </div>
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-200">Supervisor email</span>
+            <input
+              type="email"
+              value={supervisorEmail}
+              onChange={(event) => onSupervisorEmailChange(event.target.value)}
+              placeholder="supervisor@example.com"
+              className="mt-2 min-h-12 w-full rounded-xl border border-white/[0.09] bg-white/[0.025] px-3 text-base text-slate-100 outline-none placeholder:text-slate-700 focus:border-teal-300/30"
+            />
+          </label>
+          <div>
+            <p className="text-xs font-semibold text-slate-200">Email subject</p>
+            <p className="mt-2 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-3 text-sm text-slate-400">
+              {report.subject}
+            </p>
+          </div>
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-200">Detailed report preview</span>
+            <textarea
+              readOnly
+              rows={14}
+              value={report.body}
+              className="mt-2 w-full resize-none rounded-xl border border-white/[0.07] bg-[#070c12] px-3 py-3 font-mono text-xs leading-5 text-slate-400 outline-none"
+            />
+          </label>
+        </div>
+        <div className="flex flex-col-reverse gap-2 border-t border-white/[0.07] p-4 sm:flex-row sm:justify-end sm:px-6">
+          <Button variant="ghost" onClick={onClose}>
+            Keep editing
+          </Button>
+          <a
+            href={canEmail ? mailto : undefined}
+            aria-disabled={!canEmail}
+            className={cn(
+              "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold transition",
+              canEmail
+                ? "bg-teal-400 text-[#04100f] hover:bg-teal-300"
+                : "cursor-not-allowed bg-white/[0.05] text-slate-700",
+            )}
+          >
+            <Mail size={15} /> Open email draft
+          </a>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function ReportMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5">
+      <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-slate-100">{value}</p>
+    </div>
   );
 }
 
