@@ -10,6 +10,7 @@ import {
   LogOut,
   Moon,
   PackageSearch,
+  ReceiptText,
   Search,
   Stethoscope,
   Sun,
@@ -28,6 +29,7 @@ const navigation = [
   { to: "/information", label: "Information center", icon: BookOpen },
   { to: "/assets", label: "Equipment", icon: PackageSearch },
   { to: "/facilities", label: "Site notes", icon: Building2 },
+  { to: "/billing", label: "Billing", icon: ReceiptText },
   { to: "/admin", label: "Administrator", icon: ClipboardList },
 ] as const;
 
@@ -58,7 +60,8 @@ export function AppShell() {
   }, []);
 
   const availableNavigation = navigation.filter(
-    (item) => item.to !== "/admin" || isAdministrator(user?.role),
+    (item) =>
+      (item.to !== "/admin" && item.to !== "/billing") || isAdministrator(user?.role),
   );
   const current = availableNavigation.find((item) => item.to === pathname)?.label ?? "Overview";
 

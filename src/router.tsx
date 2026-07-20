@@ -29,6 +29,9 @@ const InformationPage = lazy(() =>
     default: module.InformationPage,
   })),
 );
+const BillingPage = lazy(() =>
+  import("./pages/BillingPage").then((module) => ({ default: module.BillingPage })),
+);
 const AdminServicePage = lazy(() =>
   import("./pages/AdminServicePage").then((module) => ({
     default: module.AdminServicePage,
@@ -85,6 +88,11 @@ const informationRoute = createRoute({
   path: "/information",
   component: InformationPage,
 });
+const billingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/billing",
+  component: BillingPage,
+});
 const adminServiceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
@@ -97,6 +105,7 @@ const routeTree = rootRoute.addChildren([
   troubleshootingRoute,
   maintenanceRoute,
   informationRoute,
+  billingRoute,
   adminServiceRoute,
 ]);
 export const router = createRouter({

@@ -19,6 +19,45 @@ export interface RegisterAccountInput {
   plan: SubscriptionPlan;
 }
 
+export interface BillingSummary {
+  organization: {
+    displayName: string | null;
+    planCode: string;
+    subscriptionStatus: string;
+    purchaseOrderNumber: string | null;
+    contractStartDate: string | null;
+    contractEndDate: string | null;
+    renewalDate: string | null;
+    paymentTerms: string | null;
+    billingEmail: string | null;
+    billingContactName: string | null;
+  } | null;
+  invoices: Array<{
+    id: string;
+    invoiceNumber: string;
+    purchaseOrderNumber: string | null;
+    issueDate: string;
+    dueDate: string | null;
+    amountDue: string;
+    amountPaid: string;
+    currency: string;
+    status: string;
+    paymentTerms: string | null;
+    description: string | null;
+    paidAt: string | null;
+  }>;
+  contracts: Array<{
+    id: string;
+    contractNumber: string;
+    contractType: string;
+    startDate: string;
+    endDate: string;
+    renewalDate: string | null;
+    status: string;
+    agreementAvailable: string | null;
+  }>;
+}
+
 function hasLocalSession() {
   return (
     localStorage.getItem(localSessionKey) === "authenticated" ||
@@ -100,6 +139,50 @@ export async function logout(csrfToken: string): Promise<void> {
       method: "POST",
       credentials: "include",
       headers: { "X-CSRF-Token": csrfToken },
+    }),
+  );
+}
+
+export async function getBillingSummary(): Promise<BillingSummary> {
+  return parse(
+    await fetch("/api/billing", { credentials: "include", cache: "no-store" }),
+  );
+}
+
+export async function getPlatformOrganizations(csrfToken: string): Promise<{
+  organizations: Array<{
+    id: string;
+    legalName: string | null;
+    displayName: string | null;
+    subscriptionStatus: string;
+    planCode: string;
+    billingType: string;
+    purchaseOrderNumber: string | null;
+    contractEndDate: string | null;
+    invoiceStatus: string;
+    updatedAt: string;
+  }>;
+}> {
+  return parse(
+    await fetch("/api/platform/billing/organizations", {
+      credentials: "include",
+      headers: { "X-CSRF-Token": csrfToken },
+      cache: "no-store",
+    }),
+  );
+}
+
+export async function transitionOrganization(
+  organizationId: string,
+  transition: "activate" | "restrict" | "suspend" | "restore",
+  csrfToken: string,
+): Promise<void> {
+  await parse(
+    await fetch("/api/platform/billing/transition", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({ organizationId, transition }),
     }),
   );
 }
