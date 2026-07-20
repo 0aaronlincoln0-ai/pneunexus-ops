@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  diagnosticIntakeNeedsClarification,
   diagnosticProtocolContext,
   diagnosticSystemPrompt,
   rankDiagnosticGuides,
+  realtimeDiagnosticInstructions,
 } from "../server/ai/diagnostic";
 
 describe("AI diagnostic grounding", () => {
@@ -38,10 +40,28 @@ describe("AI diagnostic grounding", () => {
     expect(context).toContain("Check transaction ownership");
   });
 
+  it("asks for PEvco field details before guessing from a vague report", () => {
+    expect(diagnosticIntakeNeedsClarification("it is not working")).toBe(true);
+    expect(diagnosticIntakeNeedsClarification("Station 224 shows full bin alarm")).toBe(false);
+    expect(
+      diagnosticIntakeNeedsClarification(
+        "The result was different: the dispatcher stayed unknown",
+        "station-position-failure",
+      ),
+    ).toBe(false);
+  });
+
   it("has explicit safety and one-step boundaries", () => {
     expect(diagnosticSystemPrompt).toContain("exactly ONE safe diagnostic check");
     expect(diagnosticSystemPrompt).toContain("Never bypass lockout/tagout");
     expect(diagnosticSystemPrompt).toContain("Never invent");
     expect(diagnosticSystemPrompt).toContain("numbered step that exist");
+    expect(diagnosticSystemPrompt).toContain("professional PEvco-style");
+  });
+
+  it("keeps realtime voice natural while preserving reviewed tool output", () => {
+    expect(realtimeDiagnosticInstructions).toContain("live ChatGPT voice experience");
+    expect(realtimeDiagnosticInstructions).toContain("preserve the exact technical instruction");
+    expect(realtimeDiagnosticInstructions).toContain("Do not add extra checks");
   });
 });

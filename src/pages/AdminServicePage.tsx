@@ -20,6 +20,7 @@ import { PageHeading } from "../components/QueryState";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import * as api from "../lib/api";
 import {
   loadServiceHistory,
   loadServiceVideos,
@@ -58,7 +59,7 @@ function isAdministrator(role: string | undefined) {
 }
 
 export function AdminServicePage() {
-  const { user } = useAuth();
+  const { user, csrfToken } = useAuth();
   const [records, setRecords] = useState<ServiceRecord[]>(loadServiceHistory);
   const [form, setForm] = useState(emptyForm);
   const [photos, setPhotos] = useState<ServicePhoto[]>([]);
@@ -86,14 +87,31 @@ export function AdminServicePage() {
 
   useEffect(() => {
     let active = true;
-    void Promise.all(
-      initialRecords.current.map(async (record) => ({
-        ...record,
-        videos: await loadServiceVideos(record.id, record.videos),
-      })),
-    ).then((hydrated) => {
-      if (active) setRecords(hydrated);
-    });
+    void api
+      .getServiceMemoryRecords()
+      .then(({ records: storedRecords }) =>
+        Promise.all(
+          storedRecords.map(async (record) => ({
+            ...record,
+            videos: await loadServiceVideos(record.id, record.videos),
+          })),
+        ),
+      )
+      .then((hydrated) => {
+        if (!active) return;
+        setRecords(hydrated);
+        saveServiceHistory(hydrated);
+      })
+      .catch(() =>
+        Promise.all(
+          initialRecords.current.map(async (record) => ({
+            ...record,
+            videos: await loadServiceVideos(record.id, record.videos),
+          })),
+        ).then((hydrated) => {
+          if (active) setRecords(hydrated);
+        }),
+      );
     return () => {
       active = false;
     };
@@ -162,7 +180,7 @@ export function AdminServicePage() {
       setError("Add a service-call title, the observed problem, and the resolution before saving.");
       return;
     }
-    const next: ServiceRecord = {
+    const draft: ServiceRecord = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       reportedBy: user?.displayName ?? "Administrator",
@@ -180,20 +198,39 @@ export function AdminServicePage() {
       photos,
       videos: videos.map(({ id, name, mimeType }) => ({ id, name, mimeType })),
     };
-    const nextRecords = [next, ...records];
     try {
-      saveServiceHistory(nextRecords);
-      await saveServiceVideos(next.id, videos);
-      setRecords([{ ...next, videos }, ...records]);
+      const photosForUpload = photos
+        .filter((photo): photo is ServicePhoto & { dataUrl: string } => Boolean(photo.dataUrl))
+        .map(({ name, dataUrl }) => ({ name, dataUrl }));
+      const saved = csrfToken
+        ? await api.createServiceMemoryRecord(
+            {
+              title: draft.title,
+              equipment: draft.equipment,
+              location: draft.location,
+              symptom: draft.symptom,
+              resolution: draft.resolution,
+              followUp: draft.followUp,
+              instructions: draft.instructions ?? [],
+              status: draft.status,
+              photos: photosForUpload,
+            },
+            csrfToken,
+          )
+        : { record: draft };
+      const savedRecord: ServiceRecord = { ...saved.record, videos: draft.videos ?? [] };
+      saveServiceHistory([savedRecord, ...records]);
+      await saveServiceVideos(savedRecord.id, videos);
+      setRecords([savedRecord, ...records]);
       setForm(emptyForm);
       setPhotos([]);
       setVideos([]);
       setError(null);
-      setSelectedRecordId(next.id);
+      setSelectedRecordId(savedRecord.id);
     } catch {
       saveServiceHistory(records);
       setError(
-        "The service record could not be saved in this browser. Reduce photo or video size or count and try again.",
+        "The service record could not be saved permanently. Reduce photo size or count and try again.",
       );
     }
   }
@@ -203,7 +240,7 @@ export function AdminServicePage() {
       <PageHeading
         eyebrow="Administrator service intelligence"
         title="Administrator workspace"
-        description="Capture what failed, what solved it, the equipment and location involved, follow-up required, and equipment photos or videos. In this local preview, attachments are kept in this browser until shared storage is connected."
+        description="Capture what failed, what solved it, the equipment and location involved, follow-up required, and equipment photos. Pocket Technician can use these permanent service-memory records during troubleshooting."
         action={
           <div className="flex items-center gap-2 rounded-xl border border-teal-300/15 bg-teal-300/[0.05] px-3.5 py-2.5 text-[11px] font-semibold text-teal-200">
             <ShieldCheck size={15} /> Administrator workspace
@@ -374,7 +411,7 @@ export function AdminServicePage() {
                         className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#070c12]"
                       >
                         <img
-                          src={photo.dataUrl}
+                          src={photo.dataUrl ?? photo.url}
                           alt={photo.name}
                           className="aspect-[4/3] w-full object-contain"
                         />
@@ -614,7 +651,7 @@ function ServiceHistoryRow({ record, onOpen }: { record: ServiceRecord; onOpen: 
               {record.photos.slice(0, 3).map((photo, index) => (
                 <img
                   key={`${photo.name}-${index}`}
-                  src={photo.dataUrl}
+                  src={photo.dataUrl ?? photo.url}
                   alt={`${record.title} evidence`}
                   className="h-10 w-10 rounded-lg border-2 border-[#0b1119] object-cover"
                 />
@@ -753,7 +790,7 @@ function ServiceCaseDialog({ record, onClose }: { record: ServiceRecord; onClose
                   >
                     <span className="relative block aspect-[4/3] bg-black/30">
                       <img
-                        src={photo.dataUrl}
+                        src={photo.dataUrl ?? photo.url}
                         alt={`${record.title}: ${photo.name}`}
                         className="h-full w-full object-contain"
                       />
@@ -838,7 +875,7 @@ function ServiceCaseDialog({ record, onClose }: { record: ServiceRecord; onClose
           <figure className="flex max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-white/[0.12] bg-[#070c12]">
             <div className="relative min-h-0 flex-1 bg-black">
               <img
-                src={selectedPhoto.dataUrl}
+                src={selectedPhoto.dataUrl ?? selectedPhoto.url}
                 alt={`${record.title}: ${selectedPhoto.name}`}
                 className="max-h-[78dvh] w-full object-contain"
               />

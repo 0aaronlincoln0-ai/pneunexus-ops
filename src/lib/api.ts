@@ -2,6 +2,7 @@ import type { BootstrapData, SessionUser } from "../types";
 import type { DiagnosticTurnInput, DiagnosticTurnResponse } from "./diagnostic-ai";
 import { emptyWorkspaceData, localAdminUser } from "./local-demo";
 import { loadLocalWorkspace } from "./local-workspace";
+import type { ServiceRecord } from "./service-history";
 import { findServiceKnowledge } from "./service-history";
 import { rankTroubleshootingGuides, troubleshootingGuides } from "./troubleshooting";
 
@@ -226,6 +227,36 @@ export async function setOwnerAiEnabled(
       credentials: "include",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
       body: JSON.stringify({ enabled }),
+    }),
+  );
+}
+
+export async function getServiceMemoryRecords(): Promise<{ records: ServiceRecord[] }> {
+  return parse(
+    await fetch("/api/service-memory", { credentials: "include", cache: "no-store" }),
+  );
+}
+
+export async function createServiceMemoryRecord(
+  input: {
+    title: string;
+    equipment: string;
+    location: string;
+    symptom: string;
+    resolution: string;
+    followUp: string;
+    instructions: string[];
+    status: ServiceRecord["status"];
+    photos: Array<{ name: string; dataUrl: string }>;
+  },
+  csrfToken: string,
+): Promise<{ record: ServiceRecord }> {
+  return parse(
+    await fetch("/api/service-memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(input),
     }),
   );
 }

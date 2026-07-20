@@ -2,6 +2,7 @@ import type { Config, Context } from "@netlify/functions";
 import OpenAI from "openai";
 import { z } from "zod";
 import {
+  diagnosticIntakeNeedsClarification,
   diagnosticProtocolContext,
   diagnosticResponseJsonSchema,
   diagnosticSystemPrompt,
@@ -11,6 +12,11 @@ import { buildPocketTechSkills } from "../../server/ai/pocket-tech-skills";
 import { getOwnerOpenAiRuntimeSettings } from "../../server/owner-ai-settings";
 import { capabilities, requireCapability } from "../../server/security/capabilities";
 import { detectProhibitedContent } from "../../server/security/validation";
+import {
+  findServiceMemoryMatches,
+  listServiceMemoryRecords,
+  serviceMemoryContext,
+} from "../../server/service-memory";
 import type { DiagnosticTurnResponse } from "../../src/lib/diagnostic-ai";
 import { databaseAuditLogProvider } from "./_shared/audit";
 import { errorResponse, HttpError, json, requestId } from "./_shared/http";
@@ -141,6 +147,65 @@ function localGuidedResponse(
   };
 }
 
+function clarificationResponse(
+  input: z.infer<typeof inputSchema>,
+  requestIdValue: string | null,
+  model = defaultDiagnosticModel,
+): DiagnosticTurnResponse {
+  const followUpQuestion =
+    "Tell me the exact station or device, the fault text or status on screen, and what moved or did not move.";
+  return {
+    summary:
+      "I need a little more field detail before selecting a PEvco troubleshooting procedure.",
+    speech: `I do not want to guess on that. ${followUpQuestion}`,
+    recommendedGuideId: input.guideId ?? "needs-clarification",
+    confidence: "low",
+    safetyStop: false,
+    safetyMessage: null,
+    nextStep: null,
+    followUpQuestion,
+    evidenceToCollect: [
+      "Exact station, diverter, blower, carrier, or touchscreen involved",
+      "Fault text, alarm, or status shown locally",
+      "What moved, did not move, or sounded abnormal",
+    ],
+    escalate: false,
+    escalationReason: null,
+    serviceKnowledge: [],
+    skills: [
+      {
+        id: "fault-code-expert",
+        title: "Fault code expert",
+        status: "ready",
+        detail: "Waiting for the exact fault text or equipment status.",
+      },
+      {
+        id: "equipment-photo-inspector",
+        title: "Equipment photo inspector",
+        status: input.imageDataUrl ? "active" : "ready",
+        detail: input.imageDataUrl
+          ? "Photo was attached, but a clear symptom is still needed."
+          : "Ready for a photo of the equipment or local status screen.",
+      },
+      {
+        id: "safety-gate",
+        title: "Safety gate",
+        status: "active",
+        detail: "No mechanical instruction will be selected until the fault is clear.",
+      },
+    ],
+    apiTrace: {
+      route: "/api/diagnose",
+      provider: "none",
+      model,
+      requestId: requestIdValue,
+      usedAi: false,
+      imageReviewed: Boolean(input.imageDataUrl),
+    },
+    mode: "local-guided",
+  };
+}
+
 export default async (request: Request, context: Context) => {
   const id = requestId(context);
   let parsedInput: z.infer<typeof inputSchema> | undefined;
@@ -182,18 +247,56 @@ export default async (request: Request, context: Context) => {
     }
 
     const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
-    const protocolContext = diagnosticProtocolContext(
-      diagnosticQuery,
-      input.guideId,
-      input.completedStepIndexes,
+    if (diagnosticIntakeNeedsClarification(diagnosticQuery, input.guideId)) {
+      console.info(
+        JSON.stringify({
+          level: "info",
+          event: "diagnostic.intake.needs_clarification",
+          requestId: id,
+          guideId: input.guideId ?? null,
+          imageProvided: Boolean(input.imageDataUrl),
+        }),
+      );
+      return json(clarificationResponse(input, id, ownerAi.apiKey ? ownerAi.model : defaultDiagnosticModel));
+    }
+    const [serviceRecords, protocolContext] = await Promise.all([
+      listServiceMemoryRecords(principal.organizationId),
+      Promise.resolve(
+        diagnosticProtocolContext(
+          diagnosticQuery,
+          input.guideId,
+          input.completedStepIndexes,
+        ),
+      ),
+    ]);
+    const serviceMatches = findServiceMemoryMatches(serviceRecords, diagnosticQuery, 3);
+    const savedServiceMemoryContext = serviceMemoryContext(serviceRecords, diagnosticQuery);
+    const serviceMemoryPhotoSummary = serviceMatches
+      .flatMap((record) => record.photoUrls.map((url) => `${record.title}: ${url}`))
+      .slice(0, 6);
+    console.info(
+      JSON.stringify({
+        level: "info",
+        event: "diagnostic.resources.selected",
+        requestId: id,
+        serviceMemoryMatches: serviceMatches.length,
+        serviceMemoryPhotos: serviceMemoryPhotoSummary.length,
+      }),
     );
+    const resourceContext = [
+      `SERVICE MEMORY MATCHES:\n${savedServiceMemoryContext}`,
+      serviceMemoryPhotoSummary.length
+        ? `SAVED PHOTO REFERENCES:\n${serviceMemoryPhotoSummary.join("\n")}`
+        : "SAVED PHOTO REFERENCES:\nNo matching saved photos.",
+      "RESOURCE RULE: Service memory and saved photos are technician experience, not repair authority. Use them to ask better questions and compare symptoms, but approved protocol excerpts control the next step.",
+    ].join("\n\n");
     const priorConversation = input.conversation
       .map(({ role, text }) => `${role === "user" ? "Technician" : "Assistant"}: ${text}`)
       .join("\n");
     const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
       {
         type: "text",
-        text: `APPROVED PROTOCOL EXCERPTS:\n${protocolContext}\n\nSAVED EQUIPMENT CONTEXT:\n${input.deviceContext || "None selected"}\n\nRECENT CONVERSATION:\n${priorConversation || "None"}\n\nCURRENT TECHNICIAN REPORT:\n${input.message}`,
+        text: `APPROVED PROTOCOL EXCERPTS:\n${protocolContext}\n\n${resourceContext}\n\nSAVED EQUIPMENT CONTEXT:\n${input.deviceContext || "None selected"}\n\nRECENT CONVERSATION:\n${priorConversation || "None"}\n\nCURRENT TECHNICIAN REPORT:\n${input.message}`,
       },
     ];
     if (input.imageDataUrl)
@@ -332,12 +435,12 @@ export default async (request: Request, context: Context) => {
       escalationReason: invalidStepSelection
         ? "The AI selection did not map to a reviewed protocol step."
         : result.escalationReason,
-      serviceKnowledge: [],
+      serviceKnowledge: serviceMatches,
       skills: buildPocketTechSkills({
         guide: recommendedGuide,
         nextStep,
         imageProvided: Boolean(input.imageDataUrl),
-        serviceKnowledgeCount: 0,
+        serviceKnowledgeCount: serviceMatches.length,
         safetyStop,
         escalate: invalidStepSelection || result.escalate,
       }),

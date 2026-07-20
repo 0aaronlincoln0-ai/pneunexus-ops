@@ -3,6 +3,7 @@ import {
   realtimeDiagnosticInstructions,
   realtimeDiagnosticTool,
 } from "../../server/ai/diagnostic";
+import { getOwnerOpenAiRuntimeSettings } from "../../server/owner-ai-settings";
 import { capabilities, requireCapability } from "../../server/security/capabilities";
 import { databaseAuditLogProvider } from "./_shared/audit";
 import { errorResponse, HttpError, json, requestId } from "./_shared/http";
@@ -14,6 +15,7 @@ function env(name: string): string | undefined {
 }
 
 const defaultRealtimeModel = "gpt-realtime-2.1";
+const directOpenAiBaseURL = "https://api.openai.com/v1";
 
 export default async (request: Request, context: Context) => {
   const id = requestId(context);
@@ -29,7 +31,8 @@ export default async (request: Request, context: Context) => {
       15 * 60_000,
     );
 
-    const apiKey = env("OPENAI_API_KEY");
+    const ownerAi = await getOwnerOpenAiRuntimeSettings(principal.organizationId);
+    const apiKey = ownerAi.apiKey ?? env("OPENAI_API_KEY");
     if (!apiKey)
       throw new HttpError(
         503,
@@ -38,7 +41,7 @@ export default async (request: Request, context: Context) => {
 
     const model = env("AI_REALTIME_MODEL") ?? defaultRealtimeModel;
     const safetyIdentifier = await sha256(principal.userId);
-    const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
+    const response = await fetch(`${directOpenAiBaseURL}/realtime/client_secrets`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -49,7 +52,7 @@ export default async (request: Request, context: Context) => {
         session: {
           type: "realtime",
           model,
-          reasoning: { effort: "medium" },
+          reasoning: { effort: "low" },
           audio: {
             input: {
               turn_detection: {

@@ -870,15 +870,23 @@ const diagnosticStopWords = new Set([
   "about",
   "after",
   "again",
+  "could",
   "does",
+  "doesn",
   "from",
   "have",
+  "help",
+  "issue",
   "into",
+  "not",
+  "problem",
   "that",
   "the",
   "then",
   "this",
+  "what",
   "with",
+  "working",
 ]);
 
 function diagnosticTokens(value: string): string[] {
@@ -893,6 +901,13 @@ export function rankTroubleshootingGuides(
   query: string,
   selectedGuideId?: string,
 ): TroubleshootingGuide[] {
+  return scoreTroubleshootingGuides(query, selectedGuideId).map(({ guide }) => guide);
+}
+
+export function scoreTroubleshootingGuides(
+  query: string,
+  selectedGuideId?: string,
+): Array<{ guide: TroubleshootingGuide; score: number; matches: number }> {
   const normalizedQuery = query.trim().toLowerCase();
   const queryTokens = diagnosticTokens(query);
   const scored = troubleshootingGuides.map((guide) => {
@@ -929,10 +944,11 @@ export function rankTroubleshootingGuides(
   return scored
     .map(({ guide, matches }) => ({
       guide,
+      matches,
       score: matches + (guide.id === selectedGuideId ? selectedBonus : 0),
     }))
     .sort((left, right) => right.score - left.score)
-    .map(({ guide }) => guide);
+    .map(({ guide, score, matches }) => ({ guide, score, matches }));
 }
 
 export function searchTroubleshootingGuides(query: string, category: string) {
