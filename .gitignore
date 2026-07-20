@@ -7,6 +7,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+plugin-submission/demo-frames/
 *.log
 *.tsbuildinfo
 .DS_Store

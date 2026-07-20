@@ -1,4 +1,10 @@
-import { createRootRoute, createRoute, createRouter, Outlet, useRouterState } from "@tanstack/react-router";
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  useRouterState,
+} from "@tanstack/react-router";
 import { lazy } from "react";
 import { useAuth } from "./auth";
 import { AppShell } from "./components/AppShell";
@@ -40,11 +46,17 @@ const AdminServicePage = lazy(() =>
 const PrivacyPage = lazy(() =>
   import("./pages/PrivacyPage").then((module) => ({ default: module.PrivacyPage })),
 );
+const SupportPage = lazy(() =>
+  import("./pages/SupportPage").then((module) => ({ default: module.SupportPage })),
+);
+const TermsPage = lazy(() =>
+  import("./pages/TermsPage").then((module) => ({ default: module.TermsPage })),
+);
 
 function RootComponent() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { loading, user } = useAuth();
-  if (pathname === "/privacy") return <Outlet />;
+  if (["/privacy", "/support", "/terms"].includes(pathname)) return <Outlet />;
   if (loading || !user) return <WelcomeScreen />;
   if (!user.workspaceAccess) return <ActivationPendingScreen />;
   return <AppShell />;
@@ -108,6 +120,16 @@ const privacyRoute = createRoute({
   path: "/privacy",
   component: PrivacyPage,
 });
+const supportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/support",
+  component: SupportPage,
+});
+const termsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/terms",
+  component: TermsPage,
+});
 const routeTree = rootRoute.addChildren([
   indexRoute,
   facilitiesRoute,
@@ -118,6 +140,8 @@ const routeTree = rootRoute.addChildren([
   billingRoute,
   adminServiceRoute,
   privacyRoute,
+  supportRoute,
+  termsRoute,
 ]);
 export const router = createRouter({
   routeTree,
