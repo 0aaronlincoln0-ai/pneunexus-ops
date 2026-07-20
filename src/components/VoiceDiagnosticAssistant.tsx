@@ -55,6 +55,7 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const conversationEndRef = useRef<HTMLDivElement | null>(null);
   const sessionCreatedAtRef = useRef(new Date().toISOString());
+  const responseSequenceRef = useRef(0);
 
   const busy = phase === "thinking";
   const started = messages.length > 0 || result !== null;
@@ -99,6 +100,26 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
     window.speechSynthesis.speak(utterance);
   }
 
+  async function typeAssistantResponse(text: string) {
+    const responseSequence = ++responseSequenceRef.current;
+    setMessages((current) => [...current, { role: "assistant", text: "" }]);
+    for (let length = 4; length < text.length; length += 4) {
+      await new Promise((resolve) => window.setTimeout(resolve, 14));
+      if (responseSequence !== responseSequenceRef.current) return;
+      setMessages((current) => {
+        const last = current.at(-1);
+        if (!last || last.role !== "assistant") return current;
+        return [...current.slice(0, -1), { ...last, text: text.slice(0, length) }];
+      });
+    }
+    if (responseSequence !== responseSequenceRef.current) return;
+    setMessages((current) => {
+      const last = current.at(-1);
+      if (!last || last.role !== "assistant") return current;
+      return [...current.slice(0, -1), { ...last, text }];
+    });
+  }
+
   async function sendMessage(message: string) {
     const cleaned = message.trim();
     if (!cleaned || busy) return;
@@ -126,11 +147,11 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
         csrfToken,
       );
       setResult(nextResult);
-      setMessages((current) => [...current, { role: "assistant", text: nextResult.speech }]);
       setGuideId(nextResult.recommendedGuideId);
       setPhoto(null);
       if (autoSpeak) speakText(nextResult.speech);
       else setPhase("ready");
+      await typeAssistantResponse(nextResult.speech);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Voice Assist could not respond.");
       setPhase("ready");
@@ -194,6 +215,7 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
   function startNewConversation() {
     recognitionRef.current?.stop();
     window.speechSynthesis?.cancel();
+    responseSequenceRef.current += 1;
     setMessages([]);
     setResult(null);
     setPhoto(null);
@@ -207,6 +229,7 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
 
   function resumeConversation(entry: DiagnosticHistoryEntry) {
     window.speechSynthesis?.cancel();
+    responseSequenceRef.current += 1;
     setSessionId(entry.id);
     sessionCreatedAtRef.current = entry.createdAt;
     setMessages(entry.messages);

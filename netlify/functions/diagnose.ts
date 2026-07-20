@@ -61,6 +61,46 @@ function env(name: string): string | undefined {
 
 const defaultDiagnosticModel = "gpt-4o-mini";
 
+function localGuidedResponse(input: z.infer<typeof inputSchema>): DiagnosticTurnResponse {
+  const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
+  const guide = rankDiagnosticGuides(diagnosticQuery, input.guideId)[0];
+  if (!guide) throw new HttpError(404, "No reviewed diagnostic procedure matches this report");
+  const nextStepIndex = guide.steps.findIndex(
+    (_, index) => guide.id !== input.guideId || !input.completedStepIndexes.includes(index),
+  );
+  const step = nextStepIndex >= 0 ? guide.steps[nextStepIndex] : undefined;
+  const safetyStop = Boolean(step?.requiresShutdown);
+  const followUpQuestion = step
+    ? "What did you observe after completing that check?"
+    : "Did the equipment pass the approved return-to-service verification?";
+  return {
+    summary: `Live AI is unavailable, so Pocket Technician selected the reviewed procedure: ${guide.title}.`,
+    speech: step
+      ? `${safetyStop ? "Stop and complete site-approved lockout and authorization first. " : ""}${step.instruction} You should see: ${step.expected} ${followUpQuestion}`
+      : followUpQuestion,
+    recommendedGuideId: guide.id,
+    confidence: "medium",
+    safetyStop,
+    safetyMessage: safetyStop
+      ? "This check requires shutdown and site-approved lockout/tagout before work begins."
+      : null,
+    nextStep: step
+      ? {
+          title: step.title,
+          instruction: step.instruction,
+          expected: step.expected,
+          sourceGuideId: guide.id,
+        }
+      : null,
+    followUpQuestion,
+    evidenceToCollect: step ? guide.tools.slice(0, 4) : guide.verification.slice(0, 3),
+    escalate: !step,
+    escalationReason: !step ? "Reviewed procedure steps are complete." : null,
+    serviceKnowledge: [],
+    mode: "local-guided",
+  };
+}
+
 export default async (request: Request, context: Context) => {
   const id = requestId(context);
   try {
@@ -86,7 +126,7 @@ export default async (request: Request, context: Context) => {
     const apiKey = env("OPENAI_API_KEY");
     const baseURL = env("OPENAI_BASE_URL");
     if (!apiKey && !baseURL)
-      throw new HttpError(503, "Voice Assist is not configured for this deployment yet.");
+      return json(localGuidedResponse(input));
 
     const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
     const protocolContext = diagnosticProtocolContext(
@@ -116,18 +156,31 @@ export default async (request: Request, context: Context) => {
       timeout: 25_000,
       maxRetries: 1,
     });
-    const response = await client.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: "system",
-          content: `${diagnosticSystemPrompt}\n\nReturn only a valid JSON object that matches this required schema:\n${JSON.stringify(diagnosticResponseJsonSchema)}`,
-        },
-        { role: "user", content },
-      ],
-      max_tokens: 1_600,
-      response_format: { type: "json_object" },
-    });
+    let response: Awaited<ReturnType<typeof client.chat.completions.create>>;
+    try {
+      response = await client.chat.completions.create({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: `${diagnosticSystemPrompt}\n\nReturn only a valid JSON object that matches this required schema:\n${JSON.stringify(diagnosticResponseJsonSchema)}`,
+          },
+          { role: "user", content },
+        ],
+        max_tokens: 1_600,
+        response_format: { type: "json_object" },
+      });
+    } catch (error) {
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          event: "diagnostic.ai.unavailable",
+          requestId: id,
+          errorType: error instanceof Error ? error.name : "unknown",
+        }),
+      );
+      return json(localGuidedResponse(input));
+    }
     const outputText = response.choices[0]?.message.content;
     if (!outputText) {
       console.error(
@@ -141,7 +194,7 @@ export default async (request: Request, context: Context) => {
           refusal: Boolean(response.choices[0]?.message.refusal),
         }),
       );
-      throw new Error("AI response did not contain output text");
+      return json(localGuidedResponse(input));
     }
     let result: z.infer<typeof outputSchema>;
     try {
@@ -158,7 +211,7 @@ export default async (request: Request, context: Context) => {
           errorType: error instanceof Error ? error.name : "unknown",
         }),
       );
-      throw error;
+      return json(localGuidedResponse(input));
     }
 
     const approvedGuides = rankDiagnosticGuides(diagnosticQuery, input.guideId);
