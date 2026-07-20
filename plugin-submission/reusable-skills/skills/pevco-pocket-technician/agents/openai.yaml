@@ -1,0 +1,14 @@
+interface:
+  display_name: "PEVCO Pocket Technician"
+  short_description: "Professional pneumatic-tube troubleshooting"
+  brand_color: "#14B8A6"
+  default_prompt: "Use $pevco-pocket-technician to guide a pneumatic-tube technician through one safe troubleshooting check."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "resovii-pocket-technician"
+      description: "Resovii Pocket Technician MCP diagnostic tool"
+      transport: "streamable_http"
+      url: "https://resovii.com/mcp"
+policy:
+  allow_implicit_invocation: true

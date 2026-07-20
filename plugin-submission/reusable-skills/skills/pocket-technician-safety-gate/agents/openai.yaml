@@ -1,0 +1,7 @@
+interface:
+  display_name: "Pocket Technician Safety Gate"
+  short_description: "Safety and privacy stop rules"
+  brand_color: "#EF4444"
+  default_prompt: "Use $pocket-technician-safety-gate to check whether this troubleshooting request should stop or escalate."
+policy:
+  allow_implicit_invocation: true

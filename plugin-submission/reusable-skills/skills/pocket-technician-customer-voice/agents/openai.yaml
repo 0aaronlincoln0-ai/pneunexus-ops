@@ -1,0 +1,7 @@
+interface:
+  display_name: "Pocket Technician Voice"
+  short_description: "Natural technician conversation style"
+  brand_color: "#14B8A6"
+  default_prompt: "Use $pocket-technician-customer-voice to rewrite this response as a natural field-technician voice turn."
+policy:
+  allow_implicit_invocation: true
