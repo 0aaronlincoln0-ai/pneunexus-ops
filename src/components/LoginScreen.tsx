@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import {
   ArrowRight,
   Fan,
+  FileUp,
   GitBranch,
   KeyRound,
   LockKeyhole,
@@ -17,14 +18,14 @@ import { Button } from "./ui/button";
 
 const assurances = [
   {
-    icon: PackageOpen,
-    label: "Three device families",
-    detail: "Stations · diverters · blowers",
+    icon: FileUp,
+    label: "Configuration driven",
+    detail: "Equipment loads after import",
   },
   {
-    icon: MonitorCog,
-    label: "Atlas reference",
-    detail: "Technician-entered faults · history",
+    icon: PackageOpen,
+    label: "Technician maintained",
+    detail: "Cases, evidence, and history",
   },
   {
     icon: ShieldCheck,
@@ -35,8 +36,8 @@ const assurances = [
 
 export function LoginScreen() {
   const { login, error: serviceError } = useAuth();
-  const [email, setEmail] = useState("admin");
-  const [password, setPassword] = useState("admin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +71,7 @@ export function LoginScreen() {
             </div>
             <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.025] px-3 py-1.5 text-[11px] font-medium text-slate-400">
               <span className="status-pulse" />
-              Secure demo workspace
+              Secure workspace
             </div>
           </div>
 
@@ -145,7 +146,8 @@ export function LoginScreen() {
                 Maintenance guide
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Use the temporary demo credentials or your assigned account.
+                Sign in with your organization account. New workspaces remain blank until the
+                hospital device configuration is imported.
               </p>
             </div>
 
@@ -197,7 +199,7 @@ export function LoginScreen() {
               )}
 
               <Button className="mt-2 w-full" type="submit" disabled={pending}>
-                {pending ? "Signing in…" : "Open maintenance guide"}
+                {pending ? "Signing in..." : "Sign in"}
                 <ArrowRight size={17} />
               </Button>
             </form>

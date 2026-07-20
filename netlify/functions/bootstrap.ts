@@ -214,7 +214,7 @@ export default async (request: Request, context: Context) => {
       ).length,
     };
     return json({
-      demo: true,
+      demo: false,
       generatedAt: now.toISOString(),
       metrics,
       facilities: facilityRows,

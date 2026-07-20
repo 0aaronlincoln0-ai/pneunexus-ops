@@ -108,7 +108,7 @@ export function parseTubeTrackerConfig(input: unknown): TubeTrackerImportPreview
 
   return {
     data: {
-      demo: true,
+      demo: false,
       generatedAt: new Date().toISOString(),
       metrics: {
         facilities: new Set(facilities.map((facility) => facility.campusId)).size,

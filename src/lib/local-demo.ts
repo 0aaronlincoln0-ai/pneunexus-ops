@@ -19,8 +19,10 @@ export const localAdminUser: SessionUser = {
   ],
 };
 
-export const localDemoData: BootstrapData = {
-  demo: true,
+// A new local workspace deliberately has no facility or device records. Data only appears after
+// its administrator imports a hospital configuration.
+export const emptyWorkspaceData: BootstrapData = {
+  demo: false,
   generatedAt: new Date().toISOString(),
   metrics: {
     facilities: 0,

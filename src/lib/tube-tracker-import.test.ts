@@ -17,6 +17,7 @@ describe("Tube Tracker config import", () => {
     });
 
     expect(preview.data.devices).toHaveLength(3);
+    expect(preview.data.demo).toBe(false);
     expect(preview.data.devices.map((device) => device.assetTag)).toEqual(["S10", "D20", "D20-2"]);
     expect(preview.data.zones.map((zone) => zone.name)).toEqual(["A", "B"]);
     expect(preview.warnings.join(" ")).toContain("Duplicate source ID");
