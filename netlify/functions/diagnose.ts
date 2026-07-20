@@ -6,7 +6,9 @@ import {
   diagnosticProtocolContext,
   diagnosticResponseJsonSchema,
   diagnosticSystemPrompt,
+  knownEquipmentDetail,
   rankDiagnosticGuides,
+  technicianReportContext,
 } from "../../server/ai/diagnostic";
 import { buildPocketTechSkills } from "../../server/ai/pocket-tech-skills";
 import { getOwnerOpenAiRuntimeSettings } from "../../server/owner-ai-settings";
@@ -83,7 +85,7 @@ function localGuidedResponse(
   requestIdValue: string | null,
   model = defaultDiagnosticModel,
 ): DiagnosticTurnResponse {
-  const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
+  const diagnosticQuery = technicianReportContext(input);
   const guide = rankDiagnosticGuides(diagnosticQuery, input.guideId)[0];
   if (!guide) throw new HttpError(404, "No reviewed diagnostic procedure matches this report");
   const nextStepIndex = guide.steps.findIndex(
@@ -153,12 +155,22 @@ function clarificationResponse(
   requestIdValue: string | null,
   model = defaultDiagnosticModel,
 ): DiagnosticTurnResponse {
-  const followUpQuestion =
-    "Tell me the exact station or device, the fault text or status on screen, and what moved or did not move.";
+  const equipmentDetail = knownEquipmentDetail(
+    technicianReportContext({
+      message: input.message,
+      deviceContext: input.deviceContext,
+      conversation: input.conversation,
+    }),
+  );
+  const followUpQuestion = equipmentDetail
+    ? `I have ${equipmentDetail}. What exact fault text or status is showing, and what moved or did not move?`
+    : "Tell me the exact station or device, the fault text or status on screen, and what moved or did not move.";
   return {
     summary:
-      "I need a little more field detail before selecting a PEvco troubleshooting procedure.",
-    speech: `I do not want to guess on that. ${followUpQuestion}`,
+      equipmentDetail
+        ? `I captured ${equipmentDetail}, but I still need the fault or observed symptom before selecting a PEvCO troubleshooting procedure.`
+        : "I need a little more field detail before selecting a PEvco troubleshooting procedure.",
+    speech: `I do not want to guess on the repair path. ${followUpQuestion}`,
     recommendedGuideId: input.guideId ?? "needs-clarification",
     confidence: "low",
     safetyStop: false,
@@ -166,7 +178,7 @@ function clarificationResponse(
     nextStep: null,
     followUpQuestion,
     evidenceToCollect: [
-      "Exact station, diverter, blower, carrier, or touchscreen involved",
+      equipmentDetail ?? "Exact station, diverter, blower, carrier, or touchscreen involved",
       "Fault text, alarm, or status shown locally",
       "What moved, did not move, or sounded abnormal",
     ],
@@ -184,14 +196,16 @@ function clarificationResponse(
         id: "fault-code-expert",
         title: "Fault code expert",
         status: "ready",
-        detail: "Waiting for the exact fault text or equipment status.",
+        detail: equipmentDetail
+          ? `Captured ${equipmentDetail}; waiting for the exact fault text or equipment status.`
+          : "Waiting for the exact fault text or equipment status.",
       },
       {
         id: "equipment-photo-inspector",
         title: "Equipment photo inspector",
         status: input.imageDataUrl ? "active" : "ready",
         detail: input.imageDataUrl
-          ? "Photo was attached, but a clear symptom is still needed."
+          ? "Photo was attached, but a clear symptom or fault status is still needed."
           : "Ready for a photo of the equipment or local status screen.",
       },
       {
@@ -210,7 +224,9 @@ function clarificationResponse(
         id: "safety-gate",
         title: "Safety gate",
         status: "active",
-        detail: "No mechanical instruction will be selected until the fault is clear.",
+        detail: equipmentDetail
+          ? `No mechanical instruction will be selected for ${equipmentDetail} until the fault is clear.`
+          : "No mechanical instruction will be selected until the fault is clear.",
       },
     ],
     apiTrace: {
@@ -265,7 +281,7 @@ export default async (request: Request, context: Context) => {
       return json(localGuidedResponse(input, id));
     }
 
-    const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
+    const diagnosticQuery = technicianReportContext(input);
     if (diagnosticIntakeNeedsClarification(diagnosticQuery, input.guideId)) {
       console.info(
         JSON.stringify({

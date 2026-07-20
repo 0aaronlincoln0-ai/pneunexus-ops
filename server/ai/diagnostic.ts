@@ -8,7 +8,7 @@ export function rankDiagnosticGuides(
   query: string,
   selectedGuideId?: string,
 ): TroubleshootingGuide[] {
-  return rankTroubleshootingGuides(query, selectedGuideId).slice(0, 3);
+  return rankTroubleshootingGuides(normalizeDiagnosticText(query), selectedGuideId).slice(0, 3);
 }
 
 export function diagnosticProtocolContext(
@@ -30,8 +30,42 @@ export function diagnosticProtocolContext(
     .join("\n\n---\n\n");
 }
 
+export function normalizeDiagnosticText(value: string): string {
+  return value
+    .replace(/\bstaton\b/gi, "station")
+    .replace(/\bstn\b/gi, "station")
+    .replace(/\bsta\b/gi, "station")
+    .replace(/\bdiv\b/gi, "diverter");
+}
+
+export function technicianReportContext(input: {
+  message: string;
+  deviceContext?: string;
+  conversation?: Array<{ role: "user" | "assistant"; text: string }>;
+}): string {
+  const priorUserDetails =
+    input.conversation
+      ?.filter(({ role }) => role === "user")
+      .map(({ text }) => text)
+      .join(" ") ?? "";
+  return normalizeDiagnosticText(
+    [input.deviceContext, priorUserDetails, input.message].filter(Boolean).join(" "),
+  );
+}
+
+export function knownEquipmentDetail(query: string): string | null {
+  const normalized = normalizeDiagnosticText(query);
+  const station = normalized.match(/\bstation\s*#?\s*([a-z0-9-]+)/i);
+  if (station?.[1]) return `station ${station[1]}`;
+  const diverter = normalized.match(/\bdiverter\s*#?\s*([a-z0-9-]+)/i);
+  if (diverter?.[1]) return `diverter ${diverter[1]}`;
+  const blower = normalized.match(/\bblower\s*#?\s*([a-z0-9-]+)/i);
+  if (blower?.[1]) return `blower ${blower[1]}`;
+  return null;
+}
+
 const devicePattern =
-  /\b(station|send|receive|receiver|diverter|gatling|blower|air\s*shifter|carrier|tube|touchscreen|screen|prio|controller|sensor|bin|full\s*bin|dispatch|dispatcher|slide\s*plate)\b/i;
+  /\b(station|staton|stn|sta|send|receive|receiver|diverter|div|gatling|blower|air\s*shifter|carrier|tube|touchscreen|screen|prio|controller|sensor|bin|full\s*bin|dispatch|dispatcher|slide\s*plate)\b/i;
 const symptomPattern =
   /\b(fault|alarm|error|timeout|timed\s*out|jam|jammed|stuck|missing|lost|blocked|flicker|flickering|drift|slow|weak|airflow|vacuum|pressure|position|unknown|failed|failure|won'?t|will\s*not|cannot|can'?t|no\s*power|not\s*boot|communication|comms?|ping|full|contamination|spill|leak|sensor)\b/i;
 const knownFaultCodePattern = /\b(upf)\b/i;
@@ -42,7 +76,7 @@ export function diagnosticIntakeNeedsClarification(
   query: string,
   selectedGuideId?: string,
 ): boolean {
-  const normalized = query.trim();
+  const normalized = normalizeDiagnosticText(query.trim());
   if (normalized.length < 8) return true;
   if (selectedGuideId && followUpPattern.test(normalized)) return false;
   const hasDevice = devicePattern.test(normalized);

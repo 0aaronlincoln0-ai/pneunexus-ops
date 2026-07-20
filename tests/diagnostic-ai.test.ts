@@ -3,8 +3,10 @@ import {
   diagnosticIntakeNeedsClarification,
   diagnosticProtocolContext,
   diagnosticSystemPrompt,
+  knownEquipmentDetail,
   rankDiagnosticGuides,
   realtimeDiagnosticInstructions,
+  technicianReportContext,
 } from "../server/ai/diagnostic";
 
 describe("AI diagnostic grounding", () => {
@@ -23,6 +25,23 @@ describe("AI diagnostic grounding", () => {
       "diverter-position-failure",
     );
     expect(diagnosticIntakeNeedsClarification("system says UPF at diverter 10")).toBe(false);
+  });
+
+  it("handles common station shorthand and typo during clarification", () => {
+    const context = technicianReportContext({
+      message: "staton 10",
+      conversation: [{ role: "user", text: "system says UPF" }],
+    });
+    expect(context).toContain("station 10");
+    expect(knownEquipmentDetail(context)).toBe("station 10");
+    expect(rankDiagnosticGuides(context)[0]?.id).toBe("station-position-failure");
+    expect(diagnosticIntakeNeedsClarification(context)).toBe(false);
+  });
+
+  it("asks only for the missing fault when the station is already known", () => {
+    const context = technicianReportContext({ message: "staton 10" });
+    expect(knownEquipmentDetail(context)).toBe("station 10");
+    expect(diagnosticIntakeNeedsClarification(context)).toBe(true);
   });
 
   it("marks completed selected-guide steps in the grounded context", () => {
