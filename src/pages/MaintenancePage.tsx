@@ -1,8 +1,10 @@
 import {
   AlertOctagon,
   BookOpenCheck,
+  CalendarClock,
   Check,
   CheckCircle2,
+  CircleDot,
   ClipboardCheck,
   Fan,
   FileText,
@@ -13,6 +15,8 @@ import {
   RotateCcw,
   ShieldCheck,
   TriangleAlert,
+  UserRound,
+  Users,
   Wrench,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -38,12 +42,17 @@ const iconByFamily = {
 };
 
 type Finding = "pass" | "attention" | "not-applicable";
+type PmStatus = "not-started" | "in-progress" | "ready-review" | "closed";
 
 interface SavedPmState {
   deviceId: string;
   equipmentId: string;
   location: string;
   workOrder: string;
+  assignedTo: string;
+  dueDate: string;
+  shift: string;
+  status: PmStatus;
   safetyConfirmed: boolean;
   completed: number[];
   findings: Record<number, Finding>;
@@ -64,6 +73,10 @@ function loadState(templateId: string): SavedPmState {
     equipmentId: "",
     location: "",
     workOrder: "",
+    assignedTo: "",
+    dueDate: "",
+    shift: "",
+    status: "not-started",
     safetyConfirmed: false,
     completed: [],
     findings: {},
@@ -98,13 +111,34 @@ export function MaintenancePage() {
     (finding) => finding === "attention",
   ).length;
   const readyToClose = completed.size === template.steps.length && attentionCount === 0;
+  const currentStatus = pmDisplayStatus(state.status, completed.size, template.steps.length, attentionCount);
+  const openItems = template.steps.length - completed.size;
+  const pmBoard = useMemo(
+    () =>
+      maintenanceTemplates.map((item) => {
+        const saved = item.id === selectedId ? state : loadState(item.id);
+        const done = saved.completed.length;
+        const findings = Object.values(saved.findings).filter(
+          (finding) => finding === "attention",
+        ).length;
+        return {
+          template: item,
+          saved,
+          progress: Math.round((done / item.steps.length) * 100),
+          openItems: item.steps.length - done,
+          attentionCount: findings,
+          status: pmDisplayStatus(saved.status, done, item.steps.length, findings),
+        };
+      }),
+    [selectedId, state],
+  );
   const report = useMemo(
     () =>
       createPmReport({
         template,
         equipmentId: state.equipmentId,
         location: state.location,
-        technician: user?.displayName ?? "",
+        technician: state.assignedTo || user?.displayName || "",
         workOrder: state.workOrder,
         safetyConfirmed: state.safetyConfirmed,
         completed: state.completed,
@@ -141,13 +175,24 @@ export function MaintenancePage() {
       deviceId: device.id,
       equipmentId: device.assetTag,
       location: deviceLocation(device, bootstrap.data?.facilities ?? []),
+      status: current.status === "not-started" ? "in-progress" : current.status,
     }));
   }
 
   function setFinding(index: number, finding: Finding) {
+    const nextCompleted = completed.has(index) ? state.completed : [...state.completed, index];
+    const nextFindings = { ...state.findings, [index]: finding };
+    const nextAttentionCount = Object.values(nextFindings).filter(
+      (value) => value === "attention",
+    ).length;
+    const nextStatus =
+      nextCompleted.length === template.steps.length && nextAttentionCount === 0
+        ? "ready-review"
+        : "in-progress";
     update({
-      findings: { ...state.findings, [index]: finding },
-      completed: completed.has(index) ? state.completed : [...state.completed, index],
+      findings: nextFindings,
+      completed: nextCompleted,
+      status: nextStatus,
     });
   }
 
@@ -156,7 +201,7 @@ export function MaintenancePage() {
     const next = new Set(completed);
     if (next.has(index)) next.delete(index);
     else next.add(index);
-    update({ completed: [...next] });
+    update({ completed: [...next], status: next.size ? "in-progress" : "not-started" });
   }
 
   function resetPm() {
@@ -167,29 +212,25 @@ export function MaintenancePage() {
   return (
     <>
       <PageHeading
-        eyebrow="Second workspace"
-        title="PM checklists and closeout"
-        description="Use this after live troubleshooting or for planned maintenance. Choose the equipment family, confirm safe work conditions, complete each inspection, and create the closeout report."
+        eyebrow="Team PM workspace"
+        title="PM checklist board"
+        description="Track station, diverter, and blower PMs from assignment through closeout. Pick the active PM, confirm safe work conditions, complete the checklist, and send the closeout report."
       />
 
-      <Card className="mb-6 border-teal-300/10 bg-teal-300/[0.025] p-5 sm:p-6">
-        <div className="flex items-start gap-4">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-teal-300/15 bg-teal-300/[0.06] text-teal-300">
-            <BookOpenCheck size={20} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-100">How this PM guide works</p>
-            <p className="mt-2 max-w-4xl text-xs leading-6 text-slate-500">
-              All equipment identification, inspection results, and completion marks are entered by
-              the technician. The app provides the procedure and saves progress in this browser; it
-              does not read device states, issue commands, or synchronize with external equipment.
-            </p>
-          </div>
-        </div>
-      </Card>
+      <section className="mb-6 grid gap-3 md:grid-cols-4" aria-label="PM team summary">
+        <PmMetric icon={ClipboardCheck} label="Active PM" value={template.shortName} />
+        <PmMetric icon={CircleDot} label="Status" value={currentStatus.label} tone={currentStatus.tone} />
+        <PmMetric icon={CheckCircle2} label="Progress" value={`${progress}%`} />
+        <PmMetric
+          icon={AlertOctagon}
+          label="Open findings"
+          value={attentionCount ? String(attentionCount) : String(openItems)}
+          tone={attentionCount ? "warning" : "neutral"}
+        />
+      </section>
 
-      <section className="mb-6 grid gap-3 md:grid-cols-3" aria-label="PM equipment family">
-        {maintenanceTemplates.map((item) => {
+      <section className="mb-6 grid gap-3 lg:grid-cols-3" aria-label="Team PM board">
+        {pmBoard.map(({ template: item, saved, progress: itemProgress, openItems: itemOpenItems, attentionCount: itemAttentionCount, status }) => {
           const Icon = iconByFamily[item.id];
           const active = item.id === selectedId;
           return (
@@ -198,46 +239,143 @@ export function MaintenancePage() {
               type="button"
               onClick={() => chooseFamily(item.id)}
               className={cn(
-                "rounded-2xl border p-5 text-left transition",
+                "rounded-xl border p-4 text-left transition",
                 active
-                  ? "border-teal-300/25 bg-teal-300/[0.07] ring-1 ring-inset ring-teal-300/10"
+                  ? "border-teal-300/25 bg-teal-300/[0.065] ring-1 ring-inset ring-teal-300/10"
                   : "border-white/[0.07] bg-white/[0.02] hover:border-white/[0.14] hover:bg-white/[0.035]",
               )}
             >
-              <div className="flex items-center justify-between gap-3">
-                <span
-                  className={cn(
-                    "grid h-10 w-10 place-items-center rounded-xl border",
-                    active
-                      ? "border-teal-300/20 bg-teal-300/[0.08] text-teal-300"
-                      : "border-white/[0.07] bg-white/[0.025] text-slate-500",
-                  )}
-                >
-                  <Icon size={19} />
-                </span>
-                {active && <CheckCircle2 size={18} className="text-teal-300" />}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "grid h-10 w-10 place-items-center rounded-xl border",
+                      active
+                        ? "border-teal-300/20 bg-teal-300/[0.08] text-teal-300"
+                        : "border-white/[0.07] bg-white/[0.025] text-slate-500",
+                    )}
+                  >
+                    <Icon size={19} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-white">{item.shortName} PM</p>
+                    <p className="mt-1 text-[11px] text-slate-600">
+                      {saved.equipmentId || "No equipment selected"}
+                    </p>
+                  </div>
+                </div>
+                <StatusPill status={status} />
               </div>
-              <p className="mt-4 text-base font-semibold text-white">{item.shortName}</p>
-              <p className="mt-1.5 text-xs leading-5 text-slate-500">{item.purpose}</p>
-              <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-                {item.steps.length} inspection tasks
-              </p>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                <div className="h-full rounded-full bg-teal-400" style={{ width: `${itemProgress}%` }} />
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                <div>
+                  <p className="font-semibold text-slate-300">{itemProgress}%</p>
+                  <p className="mt-0.5 text-slate-600">Done</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-300">{itemOpenItems}</p>
+                  <p className="mt-0.5 text-slate-600">Open</p>
+                </div>
+                <div>
+                  <p className={cn("font-semibold", itemAttentionCount ? "text-amber-200" : "text-slate-300")}>
+                    {itemAttentionCount}
+                  </p>
+                  <p className="mt-0.5 text-slate-600">Findings</p>
+                </div>
+              </div>
+              <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-500">{item.purpose}</p>
             </button>
           );
         })}
       </section>
+
+      <Card className="mb-6 border-teal-300/10 bg-teal-300/[0.025] p-5 sm:p-6">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div className="flex items-start gap-4">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-teal-300/15 bg-teal-300/[0.06] text-teal-300">
+              <BookOpenCheck size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-100">Team checklist rules</p>
+              <p className="mt-2 max-w-4xl text-xs leading-6 text-slate-500">
+                Team members enter equipment identification, inspection results, and completion
+                marks. This PM checklist does not connect to Atlas or the tube system, read live
+                device states, or issue equipment commands.
+              </p>
+            </div>
+          </div>
+          <Button variant="secondary" onClick={() => setReportOpen(true)}>
+            <Mail size={16} /> Build closeout report
+          </Button>
+        </div>
+      </Card>
 
       <div className="grid items-start gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
         <div className="space-y-6 xl:sticky xl:top-28">
           <Card className="overflow-hidden">
             <div className="border-b border-white/[0.06] p-5">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-teal-300/70">
-                PM identification
+                Active PM assignment
               </p>
-              <h2 className="mt-2 text-lg font-semibold text-white">{template.title}</h2>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-white">{template.title}</h2>
+                <StatusPill status={currentStatus} />
+              </div>
               <p className="mt-2 text-xs leading-5 text-slate-600">{template.interval}</p>
             </div>
             <div className="space-y-4 p-5">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <label className="block">
+                  <span className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                    <UserRound size={14} className="text-teal-300" /> Assigned team member
+                  </span>
+                  <input
+                    value={state.assignedTo}
+                    onChange={(event) => update({ assignedTo: event.target.value })}
+                    placeholder={user?.displayName ?? "Technician name"}
+                    className="mt-2 min-h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-base text-slate-100 outline-none placeholder:text-slate-700 focus:border-teal-300/30"
+                  />
+                </label>
+                <label className="block">
+                  <span className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                    <CalendarClock size={14} className="text-teal-300" /> Due date
+                  </span>
+                  <input
+                    type="date"
+                    value={state.dueDate}
+                    onChange={(event) => update({ dueDate: event.target.value })}
+                    className="mt-2 min-h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-base text-slate-100 outline-none focus:border-teal-300/30"
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <label className="block">
+                  <span className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                    <Users size={14} className="text-teal-300" /> Shift / crew
+                  </span>
+                  <input
+                    value={state.shift}
+                    onChange={(event) => update({ shift: event.target.value })}
+                    placeholder="Day shift, night shift, weekend crew"
+                    className="mt-2 min-h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-base text-slate-100 outline-none placeholder:text-slate-700 focus:border-teal-300/30"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold text-slate-300">PM status</span>
+                  <select
+                    value={state.status}
+                    onChange={(event) => update({ status: event.target.value as PmStatus })}
+                    className="mt-2 min-h-12 w-full rounded-xl border border-white/[0.08] bg-[#101821] px-3 text-base text-slate-100 outline-none focus:border-teal-300/30"
+                  >
+                    <option value="not-started">Not started</option>
+                    <option value="in-progress">In progress</option>
+                    <option value="ready-review">Ready for review</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </label>
+              </div>
               <label className="block">
                 <span className="text-xs font-semibold text-slate-300">Saved device</span>
                 <select
@@ -544,6 +682,14 @@ export function MaintenancePage() {
                 </div>
               </div>
               <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                {readyToClose && state.status !== "closed" && (
+                  <Button
+                    variant="primary"
+                    onClick={() => update({ status: "closed" })}
+                  >
+                    <CheckCircle2 size={15} /> Close PM
+                  </Button>
+                )}
                 <Button variant="secondary" onClick={() => setReportOpen(true)}>
                   <Mail size={15} /> PM report
                 </Button>
@@ -578,6 +724,81 @@ function deviceLocation(
 ) {
   const floor = facilities.find((facility) => facility.floorId === device.floorId);
   return floor ? `${floor.buildingName} - ${floor.floorName}` : "Location not recorded";
+}
+
+interface DisplayStatus {
+  label: string;
+  tone: "neutral" | "active" | "warning" | "success";
+}
+
+function pmDisplayStatus(
+  status: PmStatus,
+  completedCount: number,
+  stepCount: number,
+  attentionCount: number,
+): DisplayStatus {
+  if (status === "closed") return { label: "Closed", tone: "success" };
+  if (attentionCount > 0) return { label: "Needs follow-up", tone: "warning" };
+  if (status === "ready-review" || completedCount === stepCount)
+    return { label: "Ready for review", tone: "success" };
+  if (completedCount > 0 || status === "in-progress")
+    return { label: "In progress", tone: "active" };
+  return { label: "Not started", tone: "neutral" };
+}
+
+function StatusPill({ status }: { status: DisplayStatus }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.11em]",
+        status.tone === "success" && "bg-emerald-300/[0.1] text-emerald-100",
+        status.tone === "warning" && "bg-amber-300/[0.1] text-amber-100",
+        status.tone === "active" && "bg-teal-300/[0.1] text-teal-100",
+        status.tone === "neutral" && "bg-white/[0.06] text-slate-400",
+      )}
+    >
+      <CircleDot size={10} /> {status.label}
+    </span>
+  );
+}
+
+function PmMetric({
+  icon: Icon,
+  label,
+  value,
+  tone = "neutral",
+}: {
+  icon: typeof ClipboardCheck;
+  label: string;
+  value: string;
+  tone?: DisplayStatus["tone"];
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-3">
+        <span
+          className={cn(
+            "grid h-10 w-10 place-items-center rounded-xl border",
+            tone === "success"
+              ? "border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-300"
+              : tone === "warning"
+                ? "border-amber-300/15 bg-amber-300/[0.05] text-amber-300"
+                : tone === "active"
+                  ? "border-teal-300/15 bg-teal-300/[0.05] text-teal-300"
+                  : "border-white/[0.08] bg-white/[0.025] text-slate-400",
+          )}
+        >
+          <Icon size={18} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-600">
+            {label}
+          </p>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-100">{value}</p>
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 function PmReportDialog({

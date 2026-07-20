@@ -39,7 +39,7 @@ export const troubleshootingGuides: TroubleshootingGuide[] = [
   {
     id: "station-position-failure",
     title: "Station will not make position",
-    faultNames: ["Unit position failure", "Station position timeout"],
+    faultNames: ["UPF", "Unit position fault", "Unit position failure", "Station position timeout"],
     category: "Station",
     deviceTypes: ["Station"],
     risk: "caution",
@@ -115,7 +115,7 @@ export const troubleshootingGuides: TroubleshootingGuide[] = [
   {
     id: "diverter-position-failure",
     title: "Diverter position unknown or carrier jammed",
-    faultNames: ["Unit position failure", "Device failed to hold position"],
+    faultNames: ["UPF", "Unit position fault", "Unit position failure", "Device failed to hold position"],
     category: "Diverter",
     deviceTypes: ["Diverter"],
     risk: "restricted",
@@ -195,7 +195,7 @@ export const troubleshootingGuides: TroubleshootingGuide[] = [
   {
     id: "blower-position-airflow",
     title: "Blower position or airflow failure",
-    faultNames: ["Unit position failure", "Air flow error sensor"],
+    faultNames: ["UPF", "Unit position fault", "Unit position failure", "Air flow error sensor"],
     category: "Blower",
     deviceTypes: ["Blower", "Air shifter"],
     risk: "restricted",
@@ -884,6 +884,8 @@ const diagnosticStopWords = new Set([
   "the",
   "then",
   "this",
+  "says",
+  "system",
   "what",
   "with",
   "working",

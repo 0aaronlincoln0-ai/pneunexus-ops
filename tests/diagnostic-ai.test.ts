@@ -18,6 +18,13 @@ describe("AI diagnostic grounding", () => {
     );
   });
 
+  it("recognizes UPF at a named diverter as actionable fault detail", () => {
+    expect(rankDiagnosticGuides("system says UPF at diverter 10")[0]?.id).toBe(
+      "diverter-position-failure",
+    );
+    expect(diagnosticIntakeNeedsClarification("system says UPF at diverter 10")).toBe(false);
+  });
+
   it("marks completed selected-guide steps in the grounded context", () => {
     const context = diagnosticProtocolContext(
       "station will not make position",
@@ -57,10 +64,13 @@ describe("AI diagnostic grounding", () => {
     expect(diagnosticSystemPrompt).toContain("Never invent");
     expect(diagnosticSystemPrompt).toContain("numbered step that exist");
     expect(diagnosticSystemPrompt).toContain("professional PEvco-style");
+    expect(diagnosticSystemPrompt).toContain("inside the Resovii web app");
+    expect(diagnosticSystemPrompt).toContain("Do not claim to be the official ChatGPT app");
   });
 
   it("keeps realtime voice natural while preserving reviewed tool output", () => {
     expect(realtimeDiagnosticInstructions).toContain("live ChatGPT voice experience");
+    expect(realtimeDiagnosticInstructions).toContain("Make the technician feel capable");
     expect(realtimeDiagnosticInstructions).toContain("preserve the exact technical instruction");
     expect(realtimeDiagnosticInstructions).toContain("Do not add extra checks");
   });

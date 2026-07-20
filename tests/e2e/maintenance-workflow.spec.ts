@@ -5,9 +5,7 @@ test("standalone planned maintenance workflow can be completed without a system 
 }) => {
   await page.goto("/maintenance");
 
-  await expect(
-    page.getByRole("heading", { name: "Complete a PM from start to finish" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "PM checklist board" })).toBeVisible();
   await expect(page.getByText("No live system connection")).toHaveCount(0);
   await expect(page.getByText(/does not connect to Atlas or the tube system/i)).toBeVisible();
 
@@ -17,6 +15,6 @@ test("standalone planned maintenance workflow can be completed without a system 
   await page.getByRole("button", { name: "Pass" }).first().click();
 
   await expect(page.getByText("1 of 6 inspections recorded")).toBeVisible();
-  await expect(page.getByRole("link", { name: /request service/i })).toBeVisible();
-  await expect(page.getByRole("link", { name: /call pevco/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /build closeout report/i })).toBeVisible();
+  await expect(page.getByText(/in progress/i)).toBeVisible();
 });
