@@ -57,8 +57,17 @@ export function VoiceDiagnosticAssistant({
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const conversationEndRef = useRef<HTMLDivElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const sessionCreatedAtRef = useRef(new Date().toISOString());
   const responseSequenceRef = useRef(0);
+  const messagesRef = useRef<DiagnosticConversationMessage[]>([]);
+  const guideIdRef = useRef<string | undefined>(undefined);
+  const csrfTokenRef = useRef(csrfToken);
+  const deviceContextRef = useRef(deviceContext);
+  const autoSpeakRef = useRef(autoSpeak);
+  const realtimePeerRef = useRef<RTCPeerConnection | null>(null);
+  const realtimeChannelRef = useRef<RTCDataChannel | null>(null);
+  const realtimeStreamRef = useRef<MediaStream | null>(null);
 
   const busy = phase === "thinking";
   const started = messages.length > 0 || result !== null;
@@ -71,6 +80,27 @@ export function VoiceDiagnosticAssistant({
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, phase]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    guideIdRef.current = guideId;
+  }, [guideId]);
+
+  useEffect(() => {
+    csrfTokenRef.current = csrfToken;
+  }, [csrfToken]);
+
+  useEffect(() => {
+    deviceContextRef.current = deviceContext;
+  }, [deviceContext]);
+
+  useEffect(() => {
+    autoSpeakRef.current = autoSpeak;
+    if (remoteAudioRef.current) remoteAudioRef.current.muted = !autoSpeak;
+  }, [autoSpeak]);
 
   useEffect(() => {
     if (!messages.length) return;
@@ -92,6 +122,9 @@ export function VoiceDiagnosticAssistant({
     () => () => {
       recognitionRef.current?.stop();
       window.speechSynthesis?.cancel();
+      realtimeStreamRef.current?.getTracks().forEach((track) => track.stop());
+      realtimeChannelRef.current?.close();
+      realtimePeerRef.current?.close();
     },
     [],
   );
@@ -110,21 +143,29 @@ export function VoiceDiagnosticAssistant({
 
   async function typeAssistantResponse(text: string) {
     const responseSequence = ++responseSequenceRef.current;
-    setMessages((current) => [...current, { role: "assistant", text: "" }]);
+    setMessages((current) => {
+      const next = [...current, { role: "assistant" as const, text: "" }];
+      messagesRef.current = next;
+      return next;
+    });
     for (let length = 4; length < text.length; length += 4) {
       await new Promise((resolve) => window.setTimeout(resolve, 14));
       if (responseSequence !== responseSequenceRef.current) return;
       setMessages((current) => {
         const last = current.at(-1);
         if (!last || last.role !== "assistant") return current;
-        return [...current.slice(0, -1), { ...last, text: text.slice(0, length) }];
+        const next = [...current.slice(0, -1), { ...last, text: text.slice(0, length) }];
+        messagesRef.current = next;
+        return next;
       });
     }
     if (responseSequence !== responseSequenceRef.current) return;
     setMessages((current) => {
       const last = current.at(-1);
       if (!last || last.role !== "assistant") return current;
-      return [...current.slice(0, -1), { ...last, text }];
+      const next = [...current.slice(0, -1), { ...last, text }];
+      messagesRef.current = next;
+      return next;
     });
   }
 
@@ -137,8 +178,12 @@ export function VoiceDiagnosticAssistant({
       );
       return;
     }
-    const conversation = messages.slice(-8);
-    setMessages((current) => [...current, { role: "user", text: cleaned }]);
+    const conversation = messagesRef.current.slice(-8);
+    setMessages((current) => {
+      const next = [...current, { role: "user" as const, text: cleaned }];
+      messagesRef.current = next;
+      return next;
+    });
     setInput("");
     setError(null);
     setPhase("thinking");
@@ -166,7 +211,185 @@ export function VoiceDiagnosticAssistant({
     }
   }
 
-  function toggleListening() {
+  function sendRealtimeEvent(event: object) {
+    const channel = realtimeChannelRef.current;
+    if (channel?.readyState === "open") channel.send(JSON.stringify(event));
+  }
+
+  function setRealtimeMicrophoneEnabled(enabled: boolean) {
+    realtimeStreamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = enabled;
+    });
+  }
+
+  function closeRealtimeSession() {
+    setRealtimeMicrophoneEnabled(false);
+    realtimeStreamRef.current?.getTracks().forEach((track) => track.stop());
+    realtimeStreamRef.current = null;
+    realtimeChannelRef.current?.close();
+    realtimeChannelRef.current = null;
+    realtimePeerRef.current?.close();
+    realtimePeerRef.current = null;
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+  }
+
+  async function handleRealtimeDiagnostic(event: RealtimeFunctionCallEvent) {
+    if (event.name !== "run_reviewed_diagnostic") return;
+    let report = "";
+    try {
+      const args = JSON.parse(event.arguments) as { report?: unknown };
+      report = typeof args.report === "string" ? args.report.trim() : "";
+    } catch {
+      // The model receives a structured tool error below and can ask the technician again.
+    }
+    if (!report) {
+      sendRealtimeEvent({
+        type: "conversation.item.create",
+        item: {
+          type: "function_call_output",
+          call_id: event.call_id,
+          output: JSON.stringify({ error: "A clear technician report is required." }),
+        },
+      });
+      sendRealtimeEvent({ type: "response.create" });
+      return;
+    }
+
+    const csrf = csrfTokenRef.current;
+    if (!csrf) return;
+    const conversation = messagesRef.current.slice(-8);
+    const lastMessage = messagesRef.current.at(-1);
+    if (!lastMessage || lastMessage.role !== "user" || lastMessage.text !== report) {
+      setMessages((current) => {
+        const next = [...current, { role: "user" as const, text: report }];
+        messagesRef.current = next;
+        return next;
+      });
+    }
+    setPhase("thinking");
+    try {
+      const nextResult = await api.diagnose(
+        {
+          message: report,
+          ...(guideIdRef.current ? { guideId: guideIdRef.current } : {}),
+          completedStepIndexes: [],
+          conversation,
+          ...(deviceContextRef.current ? { deviceContext: deviceContextRef.current } : {}),
+        },
+        csrf,
+      );
+      setResult(nextResult);
+      guideIdRef.current = nextResult.recommendedGuideId;
+      setGuideId(nextResult.recommendedGuideId);
+      void typeAssistantResponse(nextResult.speech);
+      sendRealtimeEvent({
+        type: "conversation.item.create",
+        item: {
+          type: "function_call_output",
+          call_id: event.call_id,
+          output: JSON.stringify({
+            speech: nextResult.speech,
+            safetyStop: nextResult.safetyStop,
+            safetyMessage: nextResult.safetyMessage,
+            escalate: nextResult.escalate,
+            escalationReason: nextResult.escalationReason,
+          }),
+        },
+      });
+      sendRealtimeEvent({ type: "response.create" });
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "The reviewed procedure could not be loaded.";
+      setError(message);
+      sendRealtimeEvent({
+        type: "conversation.item.create",
+        item: {
+          type: "function_call_output",
+          call_id: event.call_id,
+          output: JSON.stringify({ error: message }),
+        },
+      });
+      sendRealtimeEvent({ type: "response.create" });
+      setPhase("ready");
+    }
+  }
+
+  async function startRealtimeListening(): Promise<boolean> {
+    if (!csrfTokenRef.current || !navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection)
+      return false;
+    if (realtimePeerRef.current) {
+      setRealtimeMicrophoneEnabled(true);
+      setError(null);
+      setPhase("listening");
+      return true;
+    }
+
+    setPhase("thinking");
+    try {
+      const credential = await api.createRealtimeSession(csrfTokenRef.current);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const peer = new RTCPeerConnection();
+      const channel = peer.createDataChannel("oai-events");
+      channel.addEventListener("message", (message) => {
+        let event: RealtimeServerEvent;
+        try {
+          event = JSON.parse(message.data) as RealtimeServerEvent;
+        } catch {
+          return;
+        }
+        if (event.type === "input_audio_buffer.speech_started") setPhase("listening");
+        if (event.type === "input_audio_buffer.speech_stopped") setPhase("thinking");
+        if (event.type === "response.output_audio.delta") setPhase("speaking");
+        if (event.type === "response.function_call_arguments.done")
+          void handleRealtimeDiagnostic(event as RealtimeFunctionCallEvent);
+        if (event.type === "response.done") {
+          setRealtimeMicrophoneEnabled(false);
+          setPhase("ready");
+        }
+        if (event.type === "error") {
+          setError(event.error?.message || "Live AI voice lost its connection.");
+          setRealtimeMicrophoneEnabled(false);
+          setPhase("ready");
+        }
+      });
+      peer.ontrack = ({ streams }) => {
+        if (remoteAudioRef.current && streams[0]) {
+          remoteAudioRef.current.srcObject = streams[0];
+          remoteAudioRef.current.muted = !autoSpeakRef.current;
+          void remoteAudioRef.current.play().catch(() => undefined);
+        }
+      };
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      if (!offer.sdp) throw new Error("Could not prepare the live AI voice connection.");
+      const answerResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${credential.value}`,
+          "Content-Type": "application/sdp",
+        },
+        body: offer.sdp,
+      });
+      const answerSdp = await answerResponse.text();
+      if (!answerResponse.ok) throw new Error("Could not connect to the live AI voice service.");
+      await peer.setRemoteDescription({ type: "answer", sdp: answerSdp });
+      realtimePeerRef.current = peer;
+      realtimeChannelRef.current = channel;
+      realtimeStreamRef.current = stream;
+      setError(null);
+      setPhase("listening");
+      return true;
+    } catch (caught) {
+      closeRealtimeSession();
+      setPhase("ready");
+      setError(caught instanceof Error ? caught.message : "Live AI voice is unavailable.");
+      return false;
+    }
+  }
+
+  function startBrowserListening() {
     if (phase === "listening") {
       recognitionRef.current?.stop();
       setPhase("ready");
@@ -201,6 +424,19 @@ export function VoiceDiagnosticAssistant({
     recognition.start();
   }
 
+  function toggleListening() {
+    if (phase === "listening") {
+      recognitionRef.current?.stop();
+      setRealtimeMicrophoneEnabled(false);
+      setPhase("ready");
+      return;
+    }
+    window.speechSynthesis?.cancel();
+    void startRealtimeListening().then((connected) => {
+      if (!connected) startBrowserListening();
+    });
+  }
+
   async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -223,6 +459,7 @@ export function VoiceDiagnosticAssistant({
   function startNewConversation() {
     recognitionRef.current?.stop();
     window.speechSynthesis?.cancel();
+    closeRealtimeSession();
     responseSequenceRef.current += 1;
     setMessages([]);
     setResult(null);
@@ -237,6 +474,7 @@ export function VoiceDiagnosticAssistant({
 
   function resumeConversation(entry: DiagnosticHistoryEntry) {
     window.speechSynthesis?.cancel();
+    closeRealtimeSession();
     responseSequenceRef.current += 1;
     setSessionId(entry.id);
     sessionCreatedAtRef.current = entry.createdAt;
@@ -259,6 +497,7 @@ export function VoiceDiagnosticAssistant({
 
   return (
     <Card className="voice-assist-shell mb-7 overflow-hidden" data-phase={phase}>
+      <audio ref={remoteAudioRef} autoPlay className="hidden" />
       <div className="border-b border-white/[0.07] bg-black/10 px-5 py-5 sm:px-7 sm:py-6">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
@@ -866,6 +1105,21 @@ function phaseLabel(phase: AssistantPhase): string {
 
 function createSessionId(): string {
   return crypto.randomUUID();
+}
+
+interface RealtimeFunctionCallEvent {
+  type: "response.function_call_arguments.done";
+  name: string;
+  call_id: string;
+  arguments: string;
+}
+
+interface RealtimeServerEvent {
+  type: string;
+  error?: { message?: string };
+  name?: string;
+  call_id?: string;
+  arguments?: string;
 }
 
 interface SpeechRecognitionEventLike {

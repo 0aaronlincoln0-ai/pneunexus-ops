@@ -287,3 +287,21 @@ export async function diagnose(
   );
   return { ...response, serviceKnowledge: response.serviceKnowledge ?? [] };
 }
+
+export interface RealtimeSessionCredential {
+  value: string;
+  expiresAt: number | null;
+  model: string;
+}
+
+export async function createRealtimeSession(
+  csrfToken: string,
+): Promise<RealtimeSessionCredential> {
+  return parse<RealtimeSessionCredential>(
+    await fetch("/api/realtime-session", {
+      method: "POST",
+      credentials: "include",
+      headers: { "X-CSRF-Token": csrfToken },
+    }),
+  );
+}
