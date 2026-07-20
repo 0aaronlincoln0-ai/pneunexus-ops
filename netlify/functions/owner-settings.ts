@@ -10,6 +10,8 @@ import { capabilities, requireCapability } from "../../server/security/capabilit
 import { errorResponse, HttpError, json, requestId } from "./_shared/http";
 import { authenticateRequest } from "./_shared/session";
 
+const directOpenAiBaseURL = "https://api.openai.com/v1";
+
 const saveSchema = z.object({
   apiKey: z.string().trim().min(20).max(400),
   enabled: z.boolean().default(true),
@@ -34,7 +36,12 @@ function ownerKeyErrorMessage(error: unknown) {
 }
 
 async function verifyOpenAiKey(apiKey: string, model: string) {
-  const client = new OpenAI({ apiKey, timeout: 12_000, maxRetries: 0 });
+  const client = new OpenAI({
+    apiKey,
+    baseURL: directOpenAiBaseURL,
+    timeout: 12_000,
+    maxRetries: 0,
+  });
   try {
     await client.chat.completions.create({
       model,

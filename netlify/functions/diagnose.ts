@@ -62,6 +62,7 @@ function env(name: string): string | undefined {
 }
 
 const defaultDiagnosticModel = "gpt-5.6-sol";
+const directOpenAiBaseURL = "https://api.openai.com/v1";
 const diagnosticResponseFormat = {
   type: "json_schema",
   json_schema: {
@@ -168,7 +169,7 @@ export default async (request: Request, context: Context) => {
     const apiKey = ownerAi.apiKey ?? env("OPENAI_API_KEY");
     const directOpenAiApiKey = apiKey?.startsWith("sk-") ? apiKey : undefined;
     const gatewayBaseURL = env("OPENAI_BASE_URL");
-    const baseURL = directOpenAiApiKey ? undefined : gatewayBaseURL;
+    const baseURL = directOpenAiApiKey ? directOpenAiBaseURL : gatewayBaseURL;
     if (!directOpenAiApiKey && !gatewayBaseURL) {
       console.warn(
         JSON.stringify({
