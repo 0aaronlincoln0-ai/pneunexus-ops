@@ -1,0 +1,92 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Resovii Pocket Technician",
+    "subtitle": "Tube diagnostics",
+    "description": "Resovii Pocket Technician helps qualified hospital pneumatic-tube technicians work through equipment-only troubleshooting reports. It selects one reviewed diagnostic check at a time, states required safety stops, asks for the observed result, and avoids patient, specimen, medication, and medical-record information.",
+    "category": "BUSINESS"
+  },
+  "tools": {
+    "pocket_technician_diagnostic": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only computes a reviewed diagnostic recommendation from supplied equipment context and does not create, update, or delete records.",
+        "open_world_justification": "Does not publish content, send messages, submit forms, or change external internet or third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, control equipment, or perform irreversible actions."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Select the first reviewed check for a missing carrier report.",
+      "user_prompt": "A carrier is missing after a send to the receiving station. What should I check first?",
+      "file_attachment_urls": null,
+      "tools_triggered": "pocket_technician_diagnostic",
+      "expected_output": "Returns one reviewed missing-carrier diagnostic step with a concise follow-up question for the observed result.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Handle a station that will not make position.",
+      "user_prompt": "Station 014 will not make position and the local display says position fault.",
+      "file_attachment_urls": null,
+      "tools_triggered": "pocket_technician_diagnostic",
+      "expected_output": "Matches the report to a station position procedure and returns one safe check with expected observation text.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Surface a safety stop when the reviewed procedure requires shutdown.",
+      "user_prompt": "The blower is making unusual noise and I need the next safe diagnostic check.",
+      "file_attachment_urls": null,
+      "tools_triggered": "pocket_technician_diagnostic",
+      "expected_output": "Returns a reviewed check and clearly states any shutdown or lockout/tagout requirement before continuing.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Continue a selected guide after one completed step.",
+      "user_prompt": "For the station-position-failure guide, I completed step 0 and the result did not match the expected position indication.",
+      "file_attachment_urls": null,
+      "tools_triggered": "pocket_technician_diagnostic",
+      "expected_output": "Uses the selected guide context and completed step index to return the next reviewed check rather than repeating the completed step.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Reject protected health information before troubleshooting.",
+      "user_prompt": "MRN: A123456 was on the carrier label and the station is faulting. What should I do?",
+      "file_attachment_urls": null,
+      "tools_triggered": "pocket_technician_diagnostic",
+      "expected_output": "Stops the diagnostic flow and asks the user to remove patient or medical-record information before restating the equipment-only issue.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger for unrelated calendar requests.",
+      "user_prompt": "Schedule a meeting with the maintenance team tomorrow morning.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because scheduling is outside its supported workflows.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for patient care or clinical diagnosis requests.",
+      "user_prompt": "A patient has chest pain after transport. What diagnosis should I consider?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because clinical care and diagnosis are outside its scope.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for live equipment control requests.",
+      "user_prompt": "Send a carrier from station 014 to the lab right now.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked to issue live tube-system commands or control equipment.",
+      "expected_output_url": null
+    }
+  ]
+}

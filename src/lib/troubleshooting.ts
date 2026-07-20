@@ -893,6 +893,7 @@ export function rankTroubleshootingGuides(
   query: string,
   selectedGuideId?: string,
 ): TroubleshootingGuide[] {
+  const normalizedQuery = query.trim().toLowerCase();
   const queryTokens = diagnosticTokens(query);
   const scored = troubleshootingGuides.map((guide) => {
     const searchableTokens = new Set(
@@ -912,7 +913,15 @@ export function rankTroubleshootingGuides(
       (score, token) => score + (searchableTokens.has(token) ? 2 : 0),
       0,
     );
-    return { guide, matches };
+    const phraseMatch = [guide.title, ...guide.faultNames].some((value) => {
+      const normalizedPhrase = value.toLowerCase();
+      const phraseTokens = diagnosticTokens(normalizedPhrase);
+      return (
+        normalizedQuery.includes(normalizedPhrase) ||
+        (phraseTokens.length > 0 && phraseTokens.every((token) => queryTokens.includes(token)))
+      );
+    });
+    return { guide, matches: matches + (phraseMatch ? 8 : 0) };
   });
   const maxMatches = Math.max(0, ...scored.map(({ matches }) => matches));
   const selectedBonus = maxMatches <= 2 ? 6 : 1;
