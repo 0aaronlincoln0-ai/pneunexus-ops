@@ -4,6 +4,7 @@ import {
   Bot,
   Camera,
   Check,
+  ChevronDown,
   ChevronRight,
   History,
   Keyboard,
@@ -29,6 +30,7 @@ import {
   type DiagnosticHistoryEntry,
 } from "../lib/diagnostic-history";
 import { cn } from "../lib/utils";
+import { englishSpeechVoices, selectPreferredSpeechVoice } from "../lib/speech-voice";
 import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
 
@@ -37,6 +39,12 @@ interface VoiceDiagnosticAssistantProps {
 }
 
 type AssistantPhase = "ready" | "listening" | "thinking" | "speaking";
+
+const voicePreferenceKey = "resovii-pocket-technician-voice";
+
+function loadVoicePreference() {
+  return localStorage.getItem(voicePreferenceKey) ?? undefined;
+}
 
 export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssistantProps) {
   const { csrfToken } = useAuth();
@@ -47,6 +55,10 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
   const [phase, setPhase] = useState<AssistantPhase>("ready");
   const [photo, setPhoto] = useState<{ dataUrl: string; name: string } | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(true);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [preferredVoiceURI, setPreferredVoiceURI] = useState<string | undefined>(
+    loadVoicePreference,
+  );
   const [sessionId, setSessionId] = useState<string>(createSessionId);
   const [guideId, setGuideId] = useState<string | undefined>();
   const [history, setHistory] = useState<DiagnosticHistoryEntry[]>(loadDiagnosticHistory);
@@ -58,10 +70,23 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
 
   const busy = phase === "thinking";
   const started = messages.length > 0 || result !== null;
+  const englishVoices = englishSpeechVoices(voices);
+  const voiceSelectValue =
+    preferredVoiceURI && englishVoices.some((voice) => voice.voiceURI === preferredVoiceURI)
+      ? preferredVoiceURI
+      : "automatic";
 
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, phase]);
+
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    const loadVoices = () => setVoices(window.speechSynthesis.getVoices());
+    loadVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+  }, []);
 
   useEffect(() => {
     if (!messages.length) return;
@@ -91,12 +116,29 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.92;
-    utterance.pitch = 0.96;
+    const selectedVoice = selectPreferredSpeechVoice(voices, preferredVoiceURI);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      utterance.lang = selectedVoice.lang;
+    }
+    utterance.rate = 0.9;
+    utterance.pitch = 1.04;
     utterance.onstart = () => setPhase("speaking");
     utterance.onend = () => setPhase("ready");
     utterance.onerror = () => setPhase("ready");
     window.speechSynthesis.speak(utterance);
+  }
+
+  function changeVoice(voiceURI: string) {
+    window.speechSynthesis?.cancel();
+    if (voiceURI === "automatic") {
+      localStorage.removeItem(voicePreferenceKey);
+      setPreferredVoiceURI(undefined);
+    } else {
+      localStorage.setItem(voicePreferenceKey, voiceURI);
+      setPreferredVoiceURI(voiceURI);
+    }
+    setPhase("ready");
   }
 
   async function sendMessage(message: string) {
@@ -247,7 +289,7 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
               </p>
             </div>
           </div>
-          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+          <div className="grid w-full gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:items-center">
             <button
               type="button"
               aria-pressed={autoSpeak}
@@ -260,6 +302,30 @@ export function VoiceDiagnosticAssistant({ deviceContext }: VoiceDiagnosticAssis
               {autoSpeak ? <Volume2 size={18} /> : <VolumeX size={18} />}
               Read aloud {autoSpeak ? "on" : "off"}
             </button>
+            {englishVoices.length > 0 && (
+              <label className="relative flex min-h-12 min-w-0 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-slate-300 transition focus-within:border-teal-300/35 focus-within:bg-teal-300/[0.04] hover:border-white/[0.16] hover:bg-white/[0.05] sm:px-3.5">
+                <AudioLines size={18} className="shrink-0 text-teal-300" />
+                <span className="sr-only">Assistant voice</span>
+                <select
+                  aria-label="Assistant voice"
+                  value={voiceSelectValue}
+                  onChange={(event) => changeVoice(event.target.value)}
+                  className="min-w-0 flex-1 appearance-none bg-transparent pr-6 text-sm font-semibold text-slate-300 outline-none"
+                >
+                  <option value="automatic">Warm voice · automatic</option>
+                  {englishVoices.map((voice) => (
+                    <option key={voice.voiceURI} value={voice.voiceURI}>
+                      {voice.name} · {voice.lang}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-3 text-slate-500"
+                />
+              </label>
+            )}
             {started && (
               <button
                 type="button"

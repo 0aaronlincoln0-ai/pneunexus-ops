@@ -83,9 +83,7 @@ export default async (request: Request, context: Context) => {
     if (warnings.length)
       throw new HttpError(422, "Remove patient or clinical identifiers before using Voice Assist.");
 
-    const apiKey = env("OPENAI_API_KEY");
-    const baseURL = env("OPENAI_BASE_URL");
-    if (!apiKey && !baseURL)
+    if (!env("OPENAI_API_KEY"))
       throw new HttpError(503, "Voice Assist is not configured for this deployment yet.");
 
     const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
@@ -110,12 +108,7 @@ export default async (request: Request, context: Context) => {
       });
 
     const model = env("AI_DIAGNOSTIC_MODEL") ?? defaultDiagnosticModel;
-    const client = new OpenAI({
-      apiKey: apiKey ?? "netlify-ai-gateway",
-      ...(baseURL ? { baseURL } : {}),
-      timeout: 25_000,
-      maxRetries: 1,
-    });
+    const client = new OpenAI({ timeout: 25_000, maxRetries: 1 });
     const response = await client.chat.completions.create({
       model,
       messages: [
