@@ -13,7 +13,7 @@ import { authenticateRequest } from "./_shared/session";
 const saveSchema = z.object({
   apiKey: z.string().trim().min(20).max(400),
   enabled: z.boolean().default(true),
-  model: z.string().trim().min(2).max(80).default("gpt-5-mini"),
+  model: z.string().trim().min(2).max(80).default("gpt-5.6-sol"),
 });
 
 const enabledSchema = z.object({
@@ -24,12 +24,33 @@ function isOwner(role: string | undefined) {
   return ["organization_admin", "platform_super_admin"].includes(role ?? "");
 }
 
-async function verifyOpenAiKey(apiKey: string) {
+function ownerKeyErrorMessage(error: unknown) {
+  const candidate = error as { status?: number; message?: string };
+  if (candidate.status === 401) return "OpenAI says this API key is invalid. Copy a fresh key from OpenAI API Keys and paste the full value.";
+  if (candidate.status === 403) return "OpenAI says this key or project does not have access to the selected model.";
+  if (candidate.status === 404) return "OpenAI says the selected model is not available for this API key. Try another model name.";
+  if (candidate.status === 429) return "OpenAI says this key is blocked by billing, quota, or rate limits. Check billing on the OpenAI project.";
+  return candidate.message || "OpenAI rejected this API key. Check the key and try again.";
+}
+
+async function verifyOpenAiKey(apiKey: string, model: string) {
   const client = new OpenAI({ apiKey, timeout: 12_000, maxRetries: 0 });
   try {
-    await client.models.list();
-  } catch {
-    throw new HttpError(422, "OpenAI rejected this API key. Check the key and try again.");
+    await client.chat.completions.create({
+      model,
+      messages: [{ role: "user", content: "Reply with OK." }],
+      max_completion_tokens: 12,
+    });
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "owner_ai_key.verify_failed",
+        status: (error as { status?: number }).status ?? "unknown",
+        errorType: error instanceof Error ? error.name : "unknown",
+      }),
+    );
+    throw new HttpError(422, ownerKeyErrorMessage(error));
   }
 }
 
@@ -52,7 +73,7 @@ export default async (request: Request, context: Context) => {
       const input = saveSchema.parse(await request.json());
       if (!input.apiKey.startsWith("sk-"))
         throw new HttpError(422, "OpenAI API key must start with sk-.");
-      await verifyOpenAiKey(input.apiKey);
+      await verifyOpenAiKey(input.apiKey, input.model);
       const ai = await saveOwnerAiSettings({
         organizationId: principal.organizationId,
         apiKey: input.apiKey,

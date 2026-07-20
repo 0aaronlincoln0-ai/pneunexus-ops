@@ -4,6 +4,7 @@ import {
   BookOpen,
   CalendarCheck2,
   ClipboardList,
+  Gauge,
   MapPin,
   PackageSearch,
   ShieldCheck,
@@ -14,41 +15,6 @@ import { PageError, PageHeading, PageSkeleton } from "../components/QueryState";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { useBootstrap } from "../hooks/useBootstrap";
-
-const coreActions = [
-  {
-    to: "/troubleshoot",
-    icon: Stethoscope,
-    step: "1",
-    title: "Resolve a problem",
-    detail: "Talk through the symptom, attach equipment evidence, and get one safe next check.",
-    emphasis: true,
-  },
-  {
-    to: "/maintenance",
-    icon: CalendarCheck2,
-    step: "2",
-    title: "Complete a PM",
-    detail: "Run the correct checklist, document findings, and prepare the supervisor report.",
-    emphasis: true,
-  },
-  {
-    to: "/assets",
-    icon: PackageSearch,
-    step: "3",
-    title: "Find equipment",
-    detail: "Look up tags, recorded condition, revision details, and service context.",
-    emphasis: false,
-  },
-  {
-    to: "/information",
-    icon: BookOpen,
-    step: "4",
-    title: "Get field information",
-    detail: "Start with site context, safety boundaries, procedures, and escalation guidance.",
-    emphasis: false,
-  },
-] as const;
 
 function isAdministrator(role: string | undefined) {
   return ["organization_admin", "network_admin", "platform_super_admin"].includes(role ?? "");
@@ -68,72 +34,118 @@ export function DashboardPage() {
   return (
     <>
       <PageHeading
-        eyebrow="Technician workboard"
-        title={hasImportedEquipment ? "What do you need to do?" : "Start with your equipment"}
-        description={
-          hasImportedEquipment
-            ? "Choose the task in front of you. The app will keep the procedure, evidence, and closeout information together as you work."
-            : "This workspace is blank. Import the hospital device configuration to create the equipment, locations, and PM context used throughout Resovii."
-        }
+        eyebrow="Resovii command center"
+        title="Pocket Technician is the front door"
+        description="Start with the live troubleshooting conversation. Use PM checklists next when the job is planned, repeatable, or ready for closeout."
       />
 
       {!hasImportedEquipment && (
         <Link
           to="/assets"
-          className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-teal-300/20 bg-teal-300/[0.055] p-5 transition hover:border-teal-300/35 hover:bg-teal-300/[0.085]"
+          className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.055] p-5 transition hover:border-amber-300/35 hover:bg-amber-300/[0.085]"
         >
           <div className="flex items-center gap-4">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-teal-300/15 bg-[#071916] text-teal-300">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-amber-300/15 bg-amber-300/[0.06] text-amber-200">
               <PackageSearch size={20} />
             </span>
             <div>
-              <p className="text-sm font-semibold text-white">Import hospital device configuration</p>
+              <p className="text-sm font-semibold text-white">Import equipment to unlock richer guidance</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Load a supported configuration to populate your equipment records and PM selector.
+                Pocket Technician works without a selected device, but equipment records make answers more specific.
               </p>
             </div>
           </div>
-          <ArrowRight className="shrink-0 text-teal-300" size={18} />
+          <ArrowRight className="shrink-0 text-amber-200" size={18} />
         </Link>
       )}
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" aria-label="Choose a task">
-        {coreActions.map(({ to, icon: Icon, step, title, detail, emphasis }) => (
-          <Link
-            key={to}
-            to={to}
-            className={
-              emphasis
-                ? "group rounded-xl border border-teal-300/20 bg-teal-300/[0.055] p-5 transition hover:border-teal-300/35 hover:bg-teal-300/[0.085]"
-                : "group rounded-xl border border-white/[0.07] bg-white/[0.02] p-5 transition hover:border-teal-300/20 hover:bg-teal-300/[0.035]"
-            }
-          >
-            <div className="flex items-center justify-between gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-xl border border-teal-300/15 bg-[#071916] text-teal-300">
-                <Icon size={20} />
-              </span>
-              <span className="grid h-7 w-7 place-items-center rounded-lg border border-white/[0.08] bg-black/10 text-[10px] font-bold text-slate-500">
-                {step}
-              </span>
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
+        <Link
+          to="/troubleshoot"
+          className="group overflow-hidden rounded-xl border border-teal-300/25 bg-teal-300/[0.06] p-6 transition hover:border-teal-300/45 hover:bg-teal-300/[0.09] sm:p-7"
+        >
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-3">
+                <span className="grid h-12 w-12 place-items-center rounded-xl bg-teal-300 text-[#04100f]">
+                  <Stethoscope size={24} />
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-200">
+                    Main attraction
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold text-white">Pocket Technician</h2>
+                </div>
+              </div>
+              <p className="mt-6 text-base leading-7 text-slate-300">
+                Talk through the issue, attach equipment photos, and get one safe next check at a
+                time from the live diagnostic assistant.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Badge>AI chat</Badge>
+                <Badge>Photo review</Badge>
+                <Badge>Service memory</Badge>
+                <Badge>Safe next check</Badge>
+              </div>
             </div>
-            <h2 className="mt-5 text-lg font-semibold text-white">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{detail}</p>
-            <span className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-teal-300">
-              Open workspace{" "}
-              <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
+            <span className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-teal-300 px-4 text-sm font-bold text-[#04100f] transition group-hover:bg-teal-200">
+              Start troubleshooting <ArrowRight size={17} />
             </span>
-          </Link>
-        ))}
+          </div>
+        </Link>
+
+        <Link
+          to="/maintenance"
+          className="group rounded-xl border border-white/[0.08] bg-white/[0.025] p-6 transition hover:border-teal-300/25 hover:bg-white/[0.04] sm:p-7"
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid h-12 w-12 place-items-center rounded-xl border border-teal-300/15 bg-teal-300/[0.06] text-teal-300">
+              <CalendarCheck2 size={23} />
+            </span>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                Second priority
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-white">PM checklists</h2>
+            </div>
+          </div>
+          <p className="mt-5 text-sm leading-6 text-slate-500">
+            Run station, diverter, and blower PMs with safety confirmation, findings, notes, and a
+            supervisor-ready report.
+          </p>
+          <span className="mt-6 inline-flex items-center gap-2 text-xs font-semibold text-teal-300">
+            Open PM workspace <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
+          </span>
+        </Link>
+      </section>
+
+      <section className="mt-6 grid gap-3 md:grid-cols-3">
+        <SmallAction
+          to="/assets"
+          icon={PackageSearch}
+          title="Equipment records"
+          detail={`${metrics.devices} saved equipment records`}
+        />
+        <SmallAction
+          to="/information"
+          icon={BookOpen}
+          title="Information"
+          detail="Procedures, safety boundaries, and escalation references"
+        />
+        <SmallAction
+          to="/facilities"
+          icon={MapPin}
+          title="Site notes"
+          detail={`${metrics.facilities} facilities and ${metrics.systems} tube systems`}
+        />
       </section>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card className="overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-white/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div>
-              <p className="eyebrow">Today&apos;s work</p>
-              <h2 className="mt-2 text-lg font-semibold text-white">
-                Open items needing attention
-              </h2>
+              <p className="eyebrow">Live work</p>
+              <h2 className="mt-2 text-lg font-semibold text-white">Items needing attention</h2>
             </div>
             <div className="flex gap-2">
               <Badge>{`${activeWork.length} work orders`}</Badge>
@@ -152,7 +164,7 @@ export function DashboardPage() {
                     <Badge>{workOrder.priority}</Badge>
                   </div>
                   <p className="mt-1 text-xs text-slate-600">
-                    {workOrder.number} · Due{" "}
+                    {workOrder.number} - Due{" "}
                     {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
                       new Date(workOrder.dueAt ?? workOrder.createdAt),
                     )}
@@ -171,7 +183,7 @@ export function DashboardPage() {
                     <Badge>{incident.status}</Badge>
                   </div>
                   <p className="mt-1 text-xs text-slate-600">
-                    {incident.number} · {incident.severity} severity
+                    {incident.number} - {incident.severity} severity
                   </p>
                 </div>
               </div>
@@ -180,8 +192,7 @@ export function DashboardPage() {
               <div className="p-8 text-center">
                 <p className="text-sm font-semibold text-slate-200">No open work items yet</p>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Start a PM, guided troubleshooting session, or service call when work is ready to
-                  be recorded.
+                  Start with Pocket Technician for live problems, or PM checklists for planned work.
                 </p>
               </div>
             )}
@@ -192,11 +203,11 @@ export function DashboardPage() {
           <Card className="p-5 sm:p-6">
             <div className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-xl border border-teal-300/15 bg-teal-300/[0.06] text-teal-300">
-                <MapPin size={19} />
+                <Gauge size={19} />
               </span>
               <div>
-                <p className="text-sm font-semibold text-white">Work context</p>
-                <p className="mt-1 text-xs text-slate-600">Reference information</p>
+                <p className="text-sm font-semibold text-white">Workspace readiness</p>
+                <p className="mt-1 text-xs text-slate-600">Operational context</p>
               </div>
             </div>
             <div className="mt-5 space-y-3 text-sm text-slate-400">
@@ -204,19 +215,12 @@ export function DashboardPage() {
                 <strong className="text-slate-100">{metrics.devices}</strong> equipment records
               </p>
               <p>
-                <strong className="text-slate-100">{metrics.facilities}</strong> saved facilities
+                <strong className="text-slate-100">{metrics.openWorkOrders}</strong> open work orders
               </p>
               <p>
-                <strong className="text-slate-100">{metrics.systems}</strong> tube systems in the
-                reference
+                <strong className="text-slate-100">{metrics.overdueMaintenance}</strong> overdue PMs
               </p>
             </div>
-            <Link
-              to="/facilities"
-              className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-teal-300"
-            >
-              Open site notes <ArrowRight size={14} />
-            </Link>
           </Card>
 
           {isAdministrator(user?.role) && (
@@ -229,9 +233,9 @@ export function DashboardPage() {
                   <ClipboardList size={19} />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-white">Administrator service history</p>
+                  <p className="text-sm font-semibold text-white">Service memory</p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Capture past resolutions, recurring problems, and equipment photos for the team.
+                    Save resolved cases and equipment photos for Pocket Technician to reference.
                   </p>
                   <span className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-indigo-200">
                     Open administrator workspace <ArrowRight size={14} />
@@ -243,5 +247,33 @@ export function DashboardPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function SmallAction({
+  to,
+  icon: Icon,
+  title,
+  detail,
+}: {
+  to: string;
+  icon: typeof PackageSearch;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="group rounded-xl border border-white/[0.07] bg-white/[0.02] p-5 transition hover:border-teal-300/20 hover:bg-teal-300/[0.035]"
+    >
+      <span className="grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-slate-300">
+        <Icon size={18} />
+      </span>
+      <h3 className="mt-4 text-sm font-semibold text-white">{title}</h3>
+      <p className="mt-1.5 text-xs leading-5 text-slate-500">{detail}</p>
+      <span className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-teal-300">
+        Open <ArrowRight size={14} className="transition group-hover:translate-x-0.5" />
+      </span>
+    </Link>
   );
 }

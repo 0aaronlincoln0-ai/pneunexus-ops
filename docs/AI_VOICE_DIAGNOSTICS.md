@@ -23,10 +23,11 @@ Voice Assist is a phone-first, multimodal troubleshooting layer. A technician ca
 
 Resovii owns one AI provider setup for all customer users. Customers never enter, see, or manage an API key.
 
-- **Private OpenAI credential:** set `OPENAI_API_KEY` in Netlify's protected function environment. The server uses it directly with the `AI_DIAGNOSTIC_MODEL` value (default: `gpt-4o-mini`).
+- **Owner settings page:** organization admins can save the Resovii-owned OpenAI API key at `/owner-settings`. The encrypted server-side setting is used first for every user in that organization.
+- **Private OpenAI credential:** set `OPENAI_API_KEY` in Netlify's protected function environment. The server uses it directly with the `AI_DIAGNOSTIC_MODEL` value (default: `gpt-5.6-sol`).
 - **Netlify AI Gateway:** enable AI for the deployed site. Netlify injects `OPENAI_BASE_URL`; no provider key is needed for this path.
 
-Use only one provider option for a deployment. Never create a `VITE_OPENAI_API_KEY`, include a key in a source file, or put it in a customer-facing setting. Rotate a key immediately if it is exposed outside the protected deployment environment.
+Use one primary provider option for a deployment. Never create a `VITE_OPENAI_API_KEY`, include a key in a source file, or put it in a customer-facing browser setting. Rotate a key immediately if it is exposed outside the protected deployment environment.
 
 The normal Vite development server uses a deterministic local preview. It exercises the voice, photo, conversation, and protocol-step interface without pretending that cloud photo interpretation is active. Use `netlify dev` after the site has a production deploy to test the real gateway locally.
 

@@ -24,11 +24,11 @@ import { BrandMark } from "./BrandMark";
 import { Button } from "./ui/button";
 
 const navigation = [
-  { to: "/", label: "Overview", icon: Gauge },
-  { to: "/maintenance", label: "PM workspace", icon: CalendarCheck2 },
   { to: "/troubleshoot", label: "Pocket Technician", icon: Stethoscope },
-  { to: "/information", label: "Information center", icon: BookOpen },
+  { to: "/maintenance", label: "PM checklists", icon: CalendarCheck2 },
+  { to: "/", label: "Command center", icon: Gauge },
   { to: "/assets", label: "Equipment", icon: PackageSearch },
+  { to: "/information", label: "Information", icon: BookOpen },
   { to: "/facilities", label: "Site notes", icon: Building2 },
   { to: "/billing", label: "Billing", icon: ReceiptText },
   { to: "/admin", label: "Administrator", icon: ClipboardList },

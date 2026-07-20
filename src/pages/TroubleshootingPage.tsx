@@ -17,9 +17,9 @@ export function TroubleshootingPage() {
   return (
     <>
       <PageHeading
-        eyebrow="Live diagnosis"
+        eyebrow="Main workspace"
         title="Pocket Technician"
-        description="Start a conversation with what you observed. Resovii uses the diagnostic conversation to identify the safest next check and keeps recent cases ready to resume."
+        description="The AI technician for live pneumatic-tube troubleshooting. Describe the symptom, use voice or photos, and move one safe check at a time."
         action={
           <Link
             to="/information"

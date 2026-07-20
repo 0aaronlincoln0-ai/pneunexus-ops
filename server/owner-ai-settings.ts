@@ -2,7 +2,7 @@ import { getStore } from "@netlify/blobs";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 const storeName = "resovii-owner-ai-settings";
-const defaultModel = "gpt-5-mini";
+const defaultModel = "gpt-5.6-sol";
 
 interface StoredOwnerAiSettings {
   enabled: boolean;

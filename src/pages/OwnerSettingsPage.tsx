@@ -15,7 +15,7 @@ export function OwnerSettingsPage() {
   const { user, csrfToken } = useAuth();
   const [settings, setSettings] = useState<OwnerAiSettingsStatus | null>(null);
   const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("gpt-5-mini");
+  const [model, setModel] = useState("gpt-5.6-sol");
   const [enabled, setEnabled] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);

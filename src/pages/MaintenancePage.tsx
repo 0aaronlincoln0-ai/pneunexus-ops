@@ -167,9 +167,9 @@ export function MaintenancePage() {
   return (
     <>
       <PageHeading
-        eyebrow="Planned maintenance"
-        title="Complete a PM from start to finish"
-        description="Choose the equipment family, identify the device, confirm safe work conditions, complete each inspection, record findings, and verify operation."
+        eyebrow="Second workspace"
+        title="PM checklists and closeout"
+        description="Use this after live troubleshooting or for planned maintenance. Choose the equipment family, confirm safe work conditions, complete each inspection, and create the closeout report."
       />
 
       <Card className="mb-6 border-teal-300/10 bg-teal-300/[0.025] p-5 sm:p-6">

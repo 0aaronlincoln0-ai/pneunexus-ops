@@ -61,7 +61,7 @@ function env(name: string): string | undefined {
   return process.env[name] ?? (typeof Netlify === "undefined" ? undefined : Netlify.env.get(name));
 }
 
-const defaultDiagnosticModel = "gpt-5-mini";
+const defaultDiagnosticModel = "gpt-5.6-sol";
 const diagnosticResponseFormat = {
   type: "json_schema",
   json_schema: {
