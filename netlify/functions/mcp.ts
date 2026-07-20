@@ -1,6 +1,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { z } from "zod";
 import { diagnosticProtocolContext, rankDiagnosticGuides } from "../../server/ai/diagnostic";
+import { buildPocketTechSkills } from "../../server/ai/pocket-tech-skills";
 import { detectProhibitedContent } from "../../server/security/validation";
 import type { DiagnosticTurnResponse } from "../../src/lib/diagnostic-ai";
 
@@ -166,6 +167,29 @@ function createReviewedDiagnostic(input: z.infer<typeof diagnosticInputSchema>):
     escalate: !step,
     escalationReason: !step ? "Reviewed procedure steps are complete." : null,
     serviceKnowledge: [],
+    skills: buildPocketTechSkills({
+      guide,
+      nextStep: step
+        ? {
+            title: step.title,
+            instruction: step.instruction,
+            expected: step.expected,
+            sourceGuideId: guide.id,
+          }
+        : null,
+      imageProvided: false,
+      serviceKnowledgeCount: 0,
+      safetyStop,
+      escalate: !step,
+    }),
+    apiTrace: {
+      route: "/mcp",
+      provider: "none",
+      model: "reviewed-procedure",
+      requestId: null,
+      usedAi: false,
+      imageReviewed: false,
+    },
     mode: "local-guided",
   };
 }
@@ -194,6 +218,16 @@ function mcpDiagnosticResult(input: z.infer<typeof diagnosticInputSchema>) {
         evidenceToCollect: [],
         escalate: true,
         escalationReason: "Possible protected health information was detected.",
+        serviceKnowledge: [],
+        skills: [],
+        apiTrace: {
+          route: "/mcp",
+          provider: "none",
+          model: "reviewed-procedure",
+          requestId: null,
+          usedAi: false,
+          imageReviewed: false,
+        },
         mode: "reviewed-procedure",
       },
     };

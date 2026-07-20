@@ -7,6 +7,7 @@ import {
   diagnosticSystemPrompt,
   rankDiagnosticGuides,
 } from "../../server/ai/diagnostic";
+import { buildPocketTechSkills } from "../../server/ai/pocket-tech-skills";
 import { capabilities, requireCapability } from "../../server/security/capabilities";
 import { detectProhibitedContent } from "../../server/security/validation";
 import type { DiagnosticTurnResponse } from "../../src/lib/diagnostic-ai";
@@ -59,7 +60,7 @@ function env(name: string): string | undefined {
   return process.env[name] ?? (typeof Netlify === "undefined" ? undefined : Netlify.env.get(name));
 }
 
-const defaultDiagnosticModel = "gpt-4o-mini";
+const defaultDiagnosticModel = "gpt-5-mini";
 const diagnosticResponseFormat = {
   type: "json_schema",
   json_schema: {
@@ -69,7 +70,11 @@ const diagnosticResponseFormat = {
   },
 } as const;
 
-function localGuidedResponse(input: z.infer<typeof inputSchema>): DiagnosticTurnResponse {
+function localGuidedResponse(
+  input: z.infer<typeof inputSchema>,
+  requestIdValue: string | null,
+  model = defaultDiagnosticModel,
+): DiagnosticTurnResponse {
   const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
   const guide = rankDiagnosticGuides(diagnosticQuery, input.guideId)[0];
   if (!guide) throw new HttpError(404, "No reviewed diagnostic procedure matches this report");
@@ -105,6 +110,29 @@ function localGuidedResponse(input: z.infer<typeof inputSchema>): DiagnosticTurn
     escalate: !step,
     escalationReason: !step ? "Reviewed procedure steps are complete." : null,
     serviceKnowledge: [],
+    skills: buildPocketTechSkills({
+      guide,
+      nextStep: step
+        ? {
+            title: step.title,
+            instruction: step.instruction,
+            expected: step.expected,
+            sourceGuideId: guide.id,
+          }
+        : null,
+      imageProvided: Boolean(input.imageDataUrl),
+      serviceKnowledgeCount: 0,
+      safetyStop,
+      escalate: !step,
+    }),
+    apiTrace: {
+      route: "/api/diagnose",
+      provider: "none",
+      model,
+      requestId: requestIdValue,
+      usedAi: false,
+      imageReviewed: Boolean(input.imageDataUrl),
+    },
     mode: "local-guided",
   };
 }
@@ -143,7 +171,7 @@ export default async (request: Request, context: Context) => {
           requestId: id,
         }),
       );
-      return json(localGuidedResponse(input));
+      return json(localGuidedResponse(input, id));
     }
 
     const diagnosticQuery = [input.deviceContext, input.message].filter(Boolean).join(" ");
@@ -168,6 +196,7 @@ export default async (request: Request, context: Context) => {
       });
 
     const model = env("AI_DIAGNOSTIC_MODEL") ?? defaultDiagnosticModel;
+    const provider = baseURL ? "netlify-ai-gateway" : apiKey ? "openai" : "none";
     const client = new OpenAI({
       apiKey: apiKey ?? "netlify-ai-gateway",
       ...(baseURL ? { baseURL } : {}),
@@ -197,7 +226,7 @@ export default async (request: Request, context: Context) => {
           errorType: error instanceof Error ? error.name : "unknown",
         }),
       );
-      return json(localGuidedResponse(input));
+      return json(localGuidedResponse(input, id, model));
     }
     const outputText = response.choices[0]?.message.content;
     if (!outputText) {
@@ -212,7 +241,7 @@ export default async (request: Request, context: Context) => {
           refusal: Boolean(response.choices[0]?.message.refusal),
         }),
       );
-      return json(localGuidedResponse(input));
+      return json(localGuidedResponse(input, id, model));
     }
     let result: z.infer<typeof outputSchema>;
     try {
@@ -229,7 +258,7 @@ export default async (request: Request, context: Context) => {
           errorType: error instanceof Error ? error.name : "unknown",
         }),
       );
-      return json(localGuidedResponse(input));
+      return json(localGuidedResponse(input, id, model));
     }
 
     const approvedGuides = rankDiagnosticGuides(diagnosticQuery, input.guideId);
@@ -296,6 +325,22 @@ export default async (request: Request, context: Context) => {
         ? "The AI selection did not map to a reviewed protocol step."
         : result.escalationReason,
       serviceKnowledge: [],
+      skills: buildPocketTechSkills({
+        guide: recommendedGuide,
+        nextStep,
+        imageProvided: Boolean(input.imageDataUrl),
+        serviceKnowledgeCount: 0,
+        safetyStop,
+        escalate: invalidStepSelection || result.escalate,
+      }),
+      apiTrace: {
+        route: "/api/diagnose",
+        provider,
+        model,
+        requestId: id,
+        usedAi: true,
+        imageReviewed: Boolean(input.imageDataUrl),
+      },
       mode: "ai-gateway",
     };
 
@@ -327,7 +372,7 @@ export default async (request: Request, context: Context) => {
           errorMessage: error instanceof Error ? error.message : "unknown",
         }),
       );
-      return json(localGuidedResponse(parsedInput));
+      return json(localGuidedResponse(parsedInput, id));
     }
     return errorResponse(error, id);
   }

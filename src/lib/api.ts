@@ -273,6 +273,69 @@ export async function diagnose(
         ? "Escalate if return-to-service verification is unsuccessful."
         : null,
       serviceKnowledge,
+      skills: [
+        {
+          id: "fault-code-expert",
+          title: "Fault code expert",
+          status: "active",
+          detail: `Matched this case to ${guide.title}.`,
+        },
+        {
+          id: "equipment-photo-inspector",
+          title: "Equipment photo inspector",
+          status: input.imageDataUrl ? "active" : "ready",
+          detail: input.imageDataUrl
+            ? "Photo was attached for review."
+            : "Ready for an equipment photo.",
+        },
+        {
+          id: "service-history-memory",
+          title: "Service history memory",
+          status: serviceKnowledge.length > 0 ? "active" : "ready",
+          detail:
+            serviceKnowledge.length > 0
+              ? `Found ${serviceKnowledge.length} related field resolution record${serviceKnowledge.length === 1 ? "" : "s"}.`
+              : "No matching field-history record was found.",
+        },
+        {
+          id: "parts-tools-helper",
+          title: "Parts and tools helper",
+          status: step ? "active" : "ready",
+          detail: step
+            ? `Use approved tools: ${guide.tools.slice(0, 3).join(", ")}.`
+            : "Ready after a reviewed next step is selected.",
+        },
+        {
+          id: "return-to-service-verifier",
+          title: "Return-to-service verifier",
+          status: step ? "ready" : "active",
+          detail: step
+            ? "Standing by until the current check is complete."
+            : `Verify before closing: ${guide.verification.slice(0, 2).join(" ")}`,
+        },
+        {
+          id: "technician-report-writer",
+          title: "Technician report writer",
+          status: !step ? "active" : "ready",
+          detail: "Building a clean case summary from each observation and check.",
+        },
+        {
+          id: "safety-gate",
+          title: "Safety gate",
+          status: safetyStop ? "blocked" : "active",
+          detail: safetyStop
+            ? "Stop condition is active. Confirm site authorization and lockout/tagout."
+            : "No protocol stop condition is active for this check.",
+        },
+      ],
+      apiTrace: {
+        route: "/api/diagnose",
+        provider: "none",
+        model: "local-preview",
+        requestId: null,
+        usedAi: false,
+        imageReviewed: Boolean(input.imageDataUrl),
+      },
       mode: "local-guided",
     };
   }
@@ -285,7 +348,7 @@ export async function diagnose(
       body: JSON.stringify(input),
     }),
   );
-  return { ...response, serviceKnowledge: response.serviceKnowledge ?? [] };
+  return { ...response, serviceKnowledge: response.serviceKnowledge ?? [], skills: response.skills ?? [] };
 }
 
 export interface RealtimeSessionCredential {

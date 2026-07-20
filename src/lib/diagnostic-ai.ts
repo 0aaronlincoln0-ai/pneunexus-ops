@@ -5,6 +5,29 @@ export interface DiagnosticNextStep {
   sourceGuideId: string;
 }
 
+export interface PocketTechSkillResult {
+  id:
+    | "fault-code-expert"
+    | "equipment-photo-inspector"
+    | "service-history-memory"
+    | "parts-tools-helper"
+    | "return-to-service-verifier"
+    | "technician-report-writer"
+    | "safety-gate";
+  title: string;
+  status: "active" | "ready" | "blocked";
+  detail: string;
+}
+
+export interface DiagnosticApiTrace {
+  route: "/api/diagnose" | "/mcp";
+  provider: "openai" | "netlify-ai-gateway" | "none";
+  model: string;
+  requestId: string | null;
+  usedAi: boolean;
+  imageReviewed: boolean;
+}
+
 export interface DiagnosticTurnResponse {
   summary: string;
   speech: string;
@@ -25,6 +48,8 @@ export interface DiagnosticTurnResponse {
     resolution: string;
     status: "resolved" | "monitoring" | "open";
   }>;
+  skills: PocketTechSkillResult[];
+  apiTrace: DiagnosticApiTrace;
   mode: "ai-gateway" | "local-guided";
 }
 

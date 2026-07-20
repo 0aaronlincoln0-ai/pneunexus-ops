@@ -7,7 +7,7 @@ function env(name: string): string | undefined {
 
 export default (request: Request) => {
   if (request.method !== "GET") return json({ status: "not_found" }, { status: 404 });
-  const diagnosticModel = env("AI_DIAGNOSTIC_MODEL") ?? "gpt-4o-mini";
+  const diagnosticModel = env("AI_DIAGNOSTIC_MODEL") ?? "gpt-5-mini";
   const realtimeModel = env("AI_REALTIME_MODEL") ?? "gpt-realtime-2.1";
   const hasOpenAiKey = Boolean(env("OPENAI_API_KEY"));
   const hasOpenAiGateway = Boolean(env("OPENAI_BASE_URL"));

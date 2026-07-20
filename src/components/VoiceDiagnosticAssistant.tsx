@@ -878,9 +878,62 @@ function CurrentStep({
     <div className="voice-step-enter mt-6">
       <div className="flex flex-wrap gap-2">
         <Badge>{`${result.confidence} confidence`}</Badge>
-        <Badge>{result.mode === "ai-gateway" ? "AI guided" : "Local preview"}</Badge>
+        <Badge>{result.apiTrace.usedAi ? "Live API connected" : "Procedure fallback"}</Badge>
+        <Badge>{result.apiTrace.model}</Badge>
       </div>
       <p className="mt-5 text-sm leading-6 text-slate-400">{result.summary}</p>
+
+      <div className="mt-5 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.13em] text-teal-300/75">
+              Live API path
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              {result.apiTrace.route} | {result.apiTrace.provider} |{" "}
+              {result.apiTrace.usedAi ? "AI response" : "reviewed fallback"}
+            </p>
+          </div>
+          {result.apiTrace.requestId && (
+            <span className="rounded-lg border border-white/[0.07] bg-black/10 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+              {result.apiTrace.requestId.slice(0, 10)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {result.skills.length > 0 && (
+        <div className="mt-5 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.035] p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.13em] text-cyan-200">
+            Pocket Tech skills
+          </p>
+          <div className="mt-3 grid gap-2">
+            {result.skills.map((skill) => (
+              <div
+                key={skill.id}
+                className="rounded-xl border border-white/[0.07] bg-black/10 p-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-200">{skill.title}</p>
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em]",
+                      skill.status === "blocked"
+                        ? "bg-red-300/[0.12] text-red-100"
+                        : skill.status === "active"
+                          ? "bg-emerald-300/[0.11] text-emerald-100"
+                          : "bg-white/[0.06] text-slate-400",
+                    )}
+                  >
+                    {skill.status}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs leading-5 text-slate-500">{skill.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {result.serviceKnowledge.length > 0 && (
         <div className="mt-5 rounded-2xl border border-indigo-300/15 bg-indigo-300/[0.045] p-4">
