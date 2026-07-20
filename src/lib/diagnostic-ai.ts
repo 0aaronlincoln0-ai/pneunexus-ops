@@ -3,6 +3,7 @@ export interface DiagnosticNextStep {
   instruction: string;
   expected: string;
   sourceGuideId: string;
+  stepIndex: number;
 }
 
 export interface PocketTechSkillResult {

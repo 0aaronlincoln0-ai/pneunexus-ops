@@ -28,6 +28,16 @@ describe("AI diagnostic grounding", () => {
     expect(context).toContain("RETURN-TO-SERVICE VERIFICATION:");
   });
 
+  it("keeps later steps available after the first selected-guide step is completed", () => {
+    const context = diagnosticProtocolContext(
+      "The check matched the expected result.",
+      "station-position-failure",
+      [0],
+    );
+    expect(context).toContain("Confirm the reported position [completed]");
+    expect(context).toContain("Check transaction ownership");
+  });
+
   it("has explicit safety and one-step boundaries", () => {
     expect(diagnosticSystemPrompt).toContain("exactly ONE safe diagnostic check");
     expect(diagnosticSystemPrompt).toContain("Never bypass lockout/tagout");

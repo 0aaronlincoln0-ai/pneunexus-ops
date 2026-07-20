@@ -264,6 +264,7 @@ export async function diagnose(
             instruction: step.instruction,
             expected: step.expected,
             sourceGuideId: guide.id,
+            stepIndex: nextIndex,
           }
         : null,
       followUpQuestion,

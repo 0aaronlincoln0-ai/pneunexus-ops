@@ -90,14 +90,15 @@ const diagnosticOutputSchema = {
         {
           type: "object",
           additionalProperties: false,
-          required: ["title", "instruction", "expected", "sourceGuideId"],
-          properties: {
-            title: { type: "string" },
-            instruction: { type: "string" },
-            expected: { type: "string" },
-            sourceGuideId: { type: "string" },
+            required: ["title", "instruction", "expected", "sourceGuideId", "stepIndex"],
+            properties: {
+              title: { type: "string" },
+              instruction: { type: "string" },
+              expected: { type: "string" },
+              sourceGuideId: { type: "string" },
+              stepIndex: { type: "integer", minimum: 0 },
+            },
           },
-        },
         { type: "null" },
       ],
     },
@@ -160,6 +161,7 @@ function createReviewedDiagnostic(input: z.infer<typeof diagnosticInputSchema>):
           instruction: step.instruction,
           expected: step.expected,
           sourceGuideId: guide.id,
+          stepIndex: nextStepIndex,
         }
       : null,
     followUpQuestion,
@@ -175,6 +177,7 @@ function createReviewedDiagnostic(input: z.infer<typeof diagnosticInputSchema>):
             instruction: step.instruction,
             expected: step.expected,
             sourceGuideId: guide.id,
+            stepIndex: nextStepIndex,
           }
         : null,
       imageProvided: false,

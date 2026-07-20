@@ -103,6 +103,7 @@ function localGuidedResponse(
           instruction: step.instruction,
           expected: step.expected,
           sourceGuideId: guide.id,
+          stepIndex: nextStepIndex,
         }
       : null,
     followUpQuestion,
@@ -118,6 +119,7 @@ function localGuidedResponse(
             instruction: step.instruction,
             expected: step.expected,
             sourceGuideId: guide.id,
+            stepIndex: nextStepIndex,
           }
         : null,
       imageProvided: Boolean(input.imageDataUrl),
@@ -288,12 +290,13 @@ export default async (request: Request, context: Context) => {
     const invalidStepSelection = Boolean(result.nextStep && (!selectedStepGuide || !selectedStep));
     const recommendedGuide = selectedStepGuide ?? modelRecommendedGuide;
     const nextStep =
-      selectedStep && selectedStepGuide
+      selectedStep && selectedStepGuide && approvedStepIndex !== undefined
         ? {
             title: selectedStep.title,
             instruction: selectedStep.instruction,
             expected: selectedStep.expected,
             sourceGuideId: selectedStepGuide.id,
+            stepIndex: approvedStepIndex,
           }
         : null;
     const safetyStop = Boolean(selectedStep?.requiresShutdown) || result.safetyStop;

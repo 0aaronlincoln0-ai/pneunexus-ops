@@ -52,6 +52,7 @@ export function VoiceDiagnosticAssistant({
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [sessionId, setSessionId] = useState<string>(createSessionId);
   const [guideId, setGuideId] = useState<string | undefined>();
+  const [completedStepIndexes, setCompletedStepIndexes] = useState<number[]>([]);
   const [history, setHistory] = useState<DiagnosticHistoryEntry[]>(loadDiagnosticHistory);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
@@ -62,6 +63,7 @@ export function VoiceDiagnosticAssistant({
   const responseSequenceRef = useRef(0);
   const messagesRef = useRef<DiagnosticConversationMessage[]>([]);
   const guideIdRef = useRef<string | undefined>(undefined);
+  const completedStepIndexesRef = useRef<number[]>([]);
   const csrfTokenRef = useRef(csrfToken);
   const deviceContextRef = useRef(deviceContext);
   const autoSpeakRef = useRef(autoSpeak);
@@ -88,6 +90,10 @@ export function VoiceDiagnosticAssistant({
   useEffect(() => {
     guideIdRef.current = guideId;
   }, [guideId]);
+
+  useEffect(() => {
+    completedStepIndexesRef.current = completedStepIndexes;
+  }, [completedStepIndexes]);
 
   useEffect(() => {
     csrfTokenRef.current = csrfToken;
@@ -188,11 +194,12 @@ export function VoiceDiagnosticAssistant({
     setError(null);
     setPhase("thinking");
     try {
+      const nextCompletedStepIndexes = completedStepIndexesForRequest();
       const nextResult = await api.diagnose(
         {
           message: cleaned,
           ...(guideId ? { guideId } : {}),
-          completedStepIndexes: [],
+          completedStepIndexes: nextCompletedStepIndexes,
           conversation,
           ...(deviceContext ? { deviceContext } : {}),
           ...(photo ? { imageDataUrl: photo.dataUrl } : {}),
@@ -201,6 +208,9 @@ export function VoiceDiagnosticAssistant({
       );
       setResult(nextResult);
       setGuideId(nextResult.recommendedGuideId);
+      guideIdRef.current = nextResult.recommendedGuideId;
+      setCompletedStepIndexes(nextCompletedStepIndexes);
+      completedStepIndexesRef.current = nextCompletedStepIndexes;
       setPhoto(null);
       if (autoSpeak) speakText(nextResult.speech);
       else setPhase("ready");
@@ -268,11 +278,12 @@ export function VoiceDiagnosticAssistant({
     }
     setPhase("thinking");
     try {
+      const nextCompletedStepIndexes = completedStepIndexesForRequest();
       const nextResult = await api.diagnose(
         {
           message: report,
           ...(guideIdRef.current ? { guideId: guideIdRef.current } : {}),
-          completedStepIndexes: [],
+          completedStepIndexes: nextCompletedStepIndexes,
           conversation,
           ...(deviceContextRef.current ? { deviceContext: deviceContextRef.current } : {}),
         },
@@ -281,6 +292,8 @@ export function VoiceDiagnosticAssistant({
       setResult(nextResult);
       guideIdRef.current = nextResult.recommendedGuideId;
       setGuideId(nextResult.recommendedGuideId);
+      setCompletedStepIndexes(nextCompletedStepIndexes);
+      completedStepIndexesRef.current = nextCompletedStepIndexes;
       void typeAssistantResponse(nextResult.speech);
       sendRealtimeEvent({
         type: "conversation.item.create",
@@ -468,6 +481,8 @@ export function VoiceDiagnosticAssistant({
     setError(null);
     setPhase("ready");
     setGuideId(undefined);
+    setCompletedStepIndexes([]);
+    completedStepIndexesRef.current = [];
     setSessionId(createSessionId());
     sessionCreatedAtRef.current = new Date().toISOString();
   }
@@ -480,6 +495,8 @@ export function VoiceDiagnosticAssistant({
     sessionCreatedAtRef.current = entry.createdAt;
     setMessages(entry.messages);
     setGuideId(entry.guideId);
+    setCompletedStepIndexes([]);
+    completedStepIndexesRef.current = [];
     setResult(null);
     setPhoto(null);
     setInput("");
@@ -493,6 +510,16 @@ export function VoiceDiagnosticAssistant({
       textInputRef.current?.focus();
       textInputRef.current?.setSelectionRange(26, 26);
     });
+  }
+
+  function completedStepIndexesForRequest() {
+    const currentStep = result?.nextStep;
+    if (!currentStep || currentStep.sourceGuideId !== guideIdRef.current) {
+      return completedStepIndexesRef.current;
+    }
+    return Array.from(new Set([...completedStepIndexesRef.current, currentStep.stepIndex])).sort(
+      (left, right) => left - right,
+    );
   }
 
   return (
@@ -974,7 +1001,7 @@ function CurrentStep({
         <div className="mt-5 rounded-2xl border border-teal-300/20 bg-teal-300/[0.045] p-5">
           <div className="flex items-start gap-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-300 text-sm font-black text-[#04100f]">
-              1
+              {result.nextStep.stepIndex + 1}
             </span>
             <div>
               <p className="text-lg font-semibold leading-6 text-white">{result.nextStep.title}</p>
