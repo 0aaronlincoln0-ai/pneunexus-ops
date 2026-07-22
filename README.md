@@ -17,7 +17,7 @@ The platform does not control live pneumatic-tube equipment, does not store pati
 5. Run `pnpm db:migrate` and `pnpm db:seed`.
 6. Run `pnpm dev`, then open `http://localhost:5173`.
 
-Demo login: `organization.admin@greatlakes.demo` / `DemoAccess!2026`. This credential is demonstration-only and must never be used in production.
+Database-backed administrator accounts are provisioned through controlled migrations and must not be documented with shared credentials.
 
 ## Verification
 
